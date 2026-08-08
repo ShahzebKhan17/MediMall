@@ -1,0 +1,1 @@
+"""MediMall backend application."""

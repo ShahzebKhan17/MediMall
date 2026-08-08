@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: medimall-db
+    environment:
+      POSTGRES_DB: medimall
+      POSTGRES_USER: medimall
+      POSTGRES_PASSWORD: medimall
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./Database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+  api:
+    build: ./Backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    working_dir: /app
+    volumes:
+      - ./Backend:/app
+    environment:
+      DATABASE_URL: postgresql+psycopg://medimall:medimall@db:5432/medimall
+      FRONTEND_ORIGIN: http://localhost:3000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+volumes:
+  postgres_data:
