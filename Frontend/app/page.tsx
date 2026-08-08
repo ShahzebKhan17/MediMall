@@ -16,7 +16,7 @@ export default function Home() {
     <header className="nav shell">
       <a className="brand" href="#top" aria-label="MediMall home"><span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span></a>
       <nav className={menu ? "open" : ""}><a href="#how">How it works</a><a href="#safety">Safety</a><a href="#partners">For pharmacies</a></nav>
-      <div className="nav-actions"><button className="location"><MapPin size={16}/> Bengaluru <ChevronDown size={14}/></button><button className="login" onClick={() => submit("Welcome back — sign in is coming soon.")}>Log in</button><button className="theme-toggle" onClick={() => setDark(!dark)} aria-label="Toggle dark mode">{dark ? <Sun size={18}/> : <Moon size={18}/>}</button><button className="menu" onClick={() => setMenu(!menu)}>{menu ? <X/> : <Menu/>}</button></div>
+      <div className="nav-actions"><button className="location"><MapPin size={16}/> Bengaluru <ChevronDown size={14}/></button><a className="login" href="/login">Log in</a><button className="theme-toggle" onClick={() => setDark(!dark)} aria-label="Toggle dark mode">{dark ? <Sun size={18}/> : <Moon size={18}/>}</button><button className="menu" onClick={() => setMenu(!menu)}>{menu ? <X/> : <Menu/>}</button></div>
     </header>
 
     <section id="top" className="hero shell">
