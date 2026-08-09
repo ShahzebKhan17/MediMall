@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ArrowRight, Check, ChevronDown, Clock3, FileUp, HeartPulse, MapPin, Menu, Mic, Moon, Pill, Search, ShieldCheck, Sparkles, Store, Sun, X } from "lucide-react";
+import { useTheme } from "./context/ThemeContext";
 
 const medicines = ["Paracetamol 650", "Dolo 650", "Cetirizine", "Vitamin D3"];
 
@@ -9,14 +10,14 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState("");
   const [menu, setMenu] = useState(false);
-  const [dark, setDark] = useState(false);
+  const { dark, toggleTheme } = useTheme();
   const submit = (message: string) => { setNotice(message); setTimeout(() => setNotice(""), 3200); };
   return <main className={dark ? "dark" : ""}>
     {notice && <div className="toast"><Check size={16}/> {notice}</div>}
     <header className="nav shell">
       <a className="brand" href="#top" aria-label="MediMall home"><span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span></a>
       <nav className={menu ? "open" : ""}><a href="#how">How it works</a><a href="#safety">Safety</a><a href="#partners">For pharmacies</a></nav>
-      <div className="nav-actions"><button className="location"><MapPin size={16}/> Bengaluru <ChevronDown size={14}/></button><a className="login" href="/login">Log in</a><button className="theme-toggle" onClick={() => setDark(!dark)} aria-label="Toggle dark mode">{dark ? <Sun size={18}/> : <Moon size={18}/>}</button><button className="menu" onClick={() => setMenu(!menu)}>{menu ? <X/> : <Menu/>}</button></div>
+      <div className="nav-actions"><button className="location"><MapPin size={16}/> Bengaluru <ChevronDown size={14}/></button><a className="login" href="/login">Log in</a><button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle dark mode">{dark ? <Sun size={18}/> : <Moon size={18}/>}</button><button className="menu" onClick={() => setMenu(!menu)}>{menu ? <X/> : <Menu/>}</button></div>
     </header>
 
     <section id="top" className="hero shell">
