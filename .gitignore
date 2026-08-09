@@ -26,3 +26,11 @@ env/
 # Operating System Files
 .DS_Store
 Thumbs.db
+
+# SQLite database files
+*.db
+*.sqlite3
+
+# Local upload files
+Backend/app/uploads/
+
