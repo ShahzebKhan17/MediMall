@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { api } from "../../lib/api";
 
 export interface Medicine {
   id: number;
@@ -10,6 +11,7 @@ export interface Medicine {
   type: string;
   rx: boolean;
   color: string;
+  stock?: number;
 }
 
 export interface CartItem {
@@ -58,17 +60,18 @@ interface AppContextProps {
   cart: CartItem[];
   orders: Order[];
   prescriptions: string[];
-  login: (email: string, role: "patient" | "pharmacy") => void;
-  registerUser: (profile: Partial<UserProfile>, role: "patient" | "pharmacy") => void;
-  logout: () => void;
+  login: (email: string, role: "patient" | "pharmacy", password?: string) => Promise<void>;
+  registerUser: (profile: Partial<UserProfile>, role: "patient" | "pharmacy", password?: string) => Promise<void>;
+  logout: () => Promise<void>;
   addToCart: (id: number) => void;
   removeFromCart: (id: number) => void;
   updateCartQuantity: (id: number, quantity: number) => void;
   clearCart: () => void;
-  placeOrder: (paymentMethod: string, customAddress?: string, prescriptionName?: string) => void;
-  updateOrderStatus: (orderId: string, status: Order["status"]) => void;
+  placeOrder: (paymentMethod: string, customAddress?: string, prescriptionName?: string) => Promise<void>;
+  updateOrderStatus: (orderId: string, status: Order["status"]) => Promise<void>;
   addPrescription: (name: string) => void;
-  updateProfile: (profile: Partial<UserProfile>) => void;
+  updateProfile: (profile: Partial<UserProfile>) => Promise<void>;
+  refreshOrders: () => Promise<void>;
 }
 
 const defaultProfile: UserProfile = {
@@ -99,7 +102,45 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [prescriptions, setPrescriptions] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
-  // Load from local storage
+  const refreshOrders = async () => {
+    try {
+      const backendOrders = await api.orders.getAll();
+      if (backendOrders && backendOrders.length > 0) {
+        const mappedOrders: Order[] = backendOrders.map((bo) => {
+          const itemsList: OrderItem[] = (bo.items || []).map((bi) => ({
+            name: bi.name || "Medicine",
+            brand: bi.brand || "Generic",
+            price: bi.price || 0,
+            quantity: bi.quantity || 1,
+            color: "blue",
+          }));
+          const summary = itemsList.map((it) => `${it.name}${it.quantity > 1 ? ` x${it.quantity}` : ""}`).join(" · ");
+          const hasRx = !!bo.prescription_url;
+          return {
+            id: bo.id,
+            initials: user ? user.name.split(" ").map((n) => n[0]).join("") : "US",
+            name: user?.name || "Customer",
+            itemsSummary: summary || `Prescription Order (${bo.prescription_url || "Attached"})`,
+            time: new Date(bo.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+            type: hasRx ? "Prescription review" : "Ready to pack",
+            priority: hasRx ? "Review" : "Pack",
+            status: (bo.status as Order["status"]) || "Placed",
+            itemsList,
+            total: bo.total,
+            address: bo.address,
+            paymentMethod: bo.payment_method,
+            prescription: bo.prescription_url,
+          };
+        });
+        setOrders(mappedOrders);
+        localStorage.setItem("medimall_orders", JSON.stringify(mappedOrders));
+      }
+    } catch (e) {
+      console.warn("Could not fetch orders from backend, using local orders", e);
+    }
+  };
+
+  // Load from local storage and verify HttpOnly cookie session with backend
   useEffect(() => {
     const storedUser = localStorage.getItem("medimall_user");
     const storedRole = localStorage.getItem("medimall_role");
@@ -141,9 +182,31 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     setHydrated(true);
+
+    // Sync session from backend using HttpOnly cookie
+    api.auth.getMe().then((me) => {
+      if (me) {
+        const profile: UserProfile = {
+          name: me.name || defaultProfile.name,
+          age: me.age || 28,
+          gender: me.gender || "Female",
+          email: me.email,
+          phone: me.phone || defaultProfile.phone,
+          address: me.address || defaultProfile.address,
+          allergies: me.allergies || "No known allergies",
+          bloodGroup: me.blood_group || "O+",
+        };
+        setUser(profile);
+        setRole((me.role as "patient" | "pharmacy") || "patient");
+        localStorage.setItem("medimall_user", JSON.stringify(profile));
+        localStorage.setItem("medimall_role", JSON.stringify(me.role));
+        refreshOrders();
+      }
+    }).catch(() => {
+      // Cookie is not present or expired
+    });
   }, []);
 
-  // Save to local storage helpers
   const saveCart = (newCart: CartItem[]) => {
     setCart(newCart);
     localStorage.setItem("medimall_cart", JSON.stringify(newCart));
@@ -159,7 +222,33 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem("medimall_prescriptions", JSON.stringify(newPrescriptions));
   };
 
-  const login = (email: string, targetRole: "patient" | "pharmacy") => {
+  const login = async (email: string, targetRole: "patient" | "pharmacy", password = "securepassword") => {
+    try {
+      const res = await api.auth.login({ email, password });
+      if (res) {
+        const me = await api.auth.getMe();
+        const profile: UserProfile = {
+          name: me.name || (targetRole === "patient" ? "Ananya Sharma" : "Care & Cure Pharmacy"),
+          age: me.age || 28,
+          gender: me.gender || "Female",
+          email: me.email,
+          phone: me.phone || "+91 98765 43210",
+          address: me.address || (targetRole === "patient" ? defaultProfile.address : "56, 100 Feet Rd, Indiranagar, Bengaluru"),
+          allergies: me.allergies || "No known allergies",
+          bloodGroup: me.blood_group || "O+",
+        };
+        setUser(profile);
+        setRole(targetRole);
+        localStorage.setItem("medimall_user", JSON.stringify(profile));
+        localStorage.setItem("medimall_role", JSON.stringify(targetRole));
+        await refreshOrders();
+        return;
+      }
+    } catch (e) {
+      console.warn("Backend login error, falling back to local session:", e);
+    }
+
+    // Fallback
     const isMockDefault = email === "ananya@example.com" || email === "you@example.com";
     const profile: UserProfile = isMockDefault
       ? defaultProfile
@@ -174,7 +263,23 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem("medimall_role", JSON.stringify(targetRole));
   };
 
-  const registerUser = (profile: Partial<UserProfile>, targetRole: "patient" | "pharmacy") => {
+  const registerUser = async (profile: Partial<UserProfile>, targetRole: "patient" | "pharmacy", password = "securepassword") => {
+    try {
+      await api.auth.register({
+        email: profile.email || "user@example.com",
+        password,
+        name: profile.name || (targetRole === "patient" ? "New User" : "New Pharmacy Owner"),
+        role: targetRole,
+        phone: profile.phone,
+        address: profile.address,
+        allergies: profile.allergies,
+        blood_group: profile.bloodGroup,
+      });
+      await refreshOrders();
+    } catch (e) {
+      console.warn("Backend registration error, continuing locally:", e);
+    }
+
     const newProfile: UserProfile = {
       ...defaultProfile,
       name: profile.name || (targetRole === "patient" ? "New User" : "New Pharmacy Owner"),
@@ -188,7 +293,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem("medimall_role", JSON.stringify(targetRole));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.auth.logout();
+    } catch (e) {
+      console.warn("Backend logout error:", e);
+    }
     setUser(null);
     setRole(null);
     setCart([]);
@@ -222,23 +332,44 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     saveCart([]);
   };
 
-  const placeOrder = (paymentMethod: string, customAddress?: string, prescriptionName?: string) => {
+  const placeOrder = async (paymentMethod: string, customAddress?: string, prescriptionName?: string) => {
     if (cart.length === 0 && !prescriptionName) return;
 
-    const initials = user ? user.name.split(" ").map(n => n[0]).join("") : "US";
+    // Try backend place order with HttpOnly cookie
+    let backendOrderId: string | null = null;
+    try {
+      const orderRes = await api.orders.place({
+        payment_method: paymentMethod,
+        address: customAddress || user?.address || defaultProfile.address,
+        prescription_name: prescriptionName,
+        items: cart.map((c) => ({ medicine_id: c.id, quantity: c.quantity })),
+      });
+      if (orderRes && orderRes.id) {
+        backendOrderId = orderRes.id;
+      }
+    } catch (e) {
+      console.warn("Backend order placement skipped/failed:", e);
+    }
+
+    const initials = user ? user.name.split(" ").map((n) => n[0]).join("") : "US";
     const itemsList: OrderItem[] = cart.map((cItem) => {
-      const med = catalogue.find((m) => m.id === cItem.id)!;
+      const med = catalogue.find((m) => m.id === cItem.id) || {
+        name: "Medicine Item",
+        brand: "Generic",
+        price: 50,
+        color: "blue",
+      };
       return {
         name: med.name,
         brand: med.brand,
         price: med.price,
         quantity: cItem.quantity,
-        color: med.color,
+        color: med.color || "blue",
       };
     });
 
-    const hasRx = itemsList.some(item => {
-      const med = catalogue.find(m => m.name === item.name);
+    const hasRx = itemsList.some((item) => {
+      const med = catalogue.find((m) => m.name === item.name);
       return med ? med.rx : false;
     }) || !!prescriptionName;
 
@@ -248,7 +379,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       : `Prescription verification (${prescriptionName || "Attached"})`;
 
     const newOrder: Order = {
-      id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: backendOrderId || `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
       initials,
       name: user?.name || "Ananya Sharma",
       itemsSummary: summary,
@@ -267,7 +398,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     clearCart();
   };
 
-  const updateOrderStatus = (orderId: string, status: Order["status"]) => {
+  const updateOrderStatus = async (orderId: string, status: Order["status"]) => {
+    try {
+      await api.orders.updateStatus(orderId, status);
+    } catch (e) {
+      console.warn("Backend order status update failed:", e);
+    }
+
     const updated = orders.map((order) => {
       if (order.id === orderId) {
         let type = order.type;
@@ -297,14 +434,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     savePrescriptions(updated);
   };
 
-  const updateProfile = (profile: Partial<UserProfile>) => {
+  const updateProfile = async (profile: Partial<UserProfile>) => {
     if (!user) return;
+    try {
+      await api.auth.updateMe({
+        name: profile.name,
+        phone: profile.phone,
+        address: profile.address,
+        allergies: profile.allergies,
+        blood_group: profile.bloodGroup,
+        age: profile.age,
+        gender: profile.gender,
+      });
+    } catch (e) {
+      console.warn("Backend updateMe failed:", e);
+    }
     const updated = { ...user, ...profile };
     setUser(updated);
     localStorage.setItem("medimall_user", JSON.stringify(updated));
   };
-
-  // AppProvider wraps children and always delivers context safely during SSR and client runtime.
 
   return (
     <AppContext.Provider
@@ -325,6 +473,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         updateOrderStatus,
         addPrescription,
         updateProfile,
+        refreshOrders,
       }}
     >
       {children}
@@ -339,3 +488,4 @@ export const useAppContext = () => {
   }
   return context;
 };
+

@@ -1,5 +1,5 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.post("/register", response_model=schemas.UserProfile, status_code=status.HTTP_201_CREATED)
-def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
+def register(user_in: schemas.UserCreate, response: Response, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user_in.email).first()
     if db_user:
         raise HTTPException(
@@ -46,12 +46,25 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    # Set HttpOnly cookie for newly registered user
+    access_token = security.create_access_token(subject=new_user.id)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=3600,
+        samesite="lax",
+        secure=False,
+        path="/"
+    )
+
     return new_user
 
 
 
 @router.post("/token", response_model=schemas.Token)
-def login_oauth2(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login_oauth2(form_data: OAuth2PasswordRequestForm = Depends(), response: Response = None, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -60,6 +73,16 @@ def login_oauth2(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = security.create_access_token(subject=user.id)
+    if response:
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            max_age=3600,
+            samesite="lax",
+            secure=False,
+            path="/"
+        )
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -70,7 +93,7 @@ class LoginJSONPayload(schemas.BaseModel):
 
 
 @router.post("/login", response_model=schemas.Token)
-def login_json(payload: LoginJSONPayload, db: Session = Depends(get_db)):
+def login_json(payload: LoginJSONPayload, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not security.verify_password(payload.password, user.hashed_password):
         raise HTTPException(
@@ -79,7 +102,23 @@ def login_json(payload: LoginJSONPayload, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = security.create_access_token(subject=user.id)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=3600,
+        samesite="lax",
+        secure=False,
+        path="/"
+    )
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/logout")
+def logout(response: Response):
+    response.delete_cookie(key="access_token", httponly=True, samesite="lax", path="/")
+    return {"status": "ok", "message": "Logged out successfully"}
+
 
 
 @router.get("/me", response_model=schemas.UserProfile)

@@ -16,17 +16,20 @@ export default function Register() {
   const [name, setName] = useState("");
   const [phoneOrOwner, setPhoneOrOwner] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [medicalLicense, setMedicalLicense] = useState("");
 
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    registerUser(
+    await registerUser(
       {
         name,
         phone: role === "patient" ? phoneOrOwner : "",
         email,
         address: role === "patient" ? undefined : "Shop Address, Bengaluru",
       },
-      role
+      role,
+      password
     );
     router.push(role === "patient" ? "/user/dashboard" : "/shopkeeper/dashboard");
   };
@@ -100,7 +103,12 @@ export default function Register() {
           {role === "pharmacy" && (
             <label>
               Medical licence number
-              <input required placeholder="Enter licence number" />
+              <input 
+                required 
+                value={medicalLicense} 
+                onChange={(e) => setMedicalLicense(e.target.value)} 
+                placeholder="Enter licence number" 
+              />
             </label>
           )}
           <label>
@@ -115,7 +123,13 @@ export default function Register() {
           </label>
           <label>
             Create password
-            <input required type="password" placeholder="At least 8 characters" />
+            <input 
+              required 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              placeholder="At least 8 characters" 
+            />
           </label>
           <label className="terms">
             <input required type="checkbox" />I agree to MediMall&apos;s terms and privacy policy.

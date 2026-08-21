@@ -12,11 +12,12 @@ export default function LoginPage() {
   const router = useRouter();
   const [role, setRole] = useState<"user" | "shop">("user");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const appRole = role === "user" ? "patient" : "pharmacy";
-    login(email, appRole);
+    await login(email, appRole, password);
     router.push(role === "user" ? "/user/dashboard" : "/shopkeeper/dashboard");
   };
 
@@ -78,7 +79,13 @@ export default function LoginPage() {
           </label>
           <label>
             Password
-            <input type="password" placeholder="Enter your password" required />
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              placeholder="Enter your password" 
+              required 
+            />
           </label>
           <div className="auth-options">
             <label>

@@ -1,8 +1,8 @@
 import bcrypt
 from datetime import datetime, timedelta, timezone
-from typing import Any, Union
+from typing import Any, Optional, Union
 from jose import jwt, JWTError
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from app.core.database import get_db
 
 settings = get_settings()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token", auto_error=False)
 
 ALGORITHM = "HS256"
 
@@ -38,12 +38,19 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
     return encoded_jwt
 
 
-def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
+def get_current_user_id(
+    request: Request,
+    token_header: Optional[str] = Depends(oauth2_scheme)
+) -> str:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    # Check HttpOnly cookie first, then fallback to Authorization header
+    token = request.cookies.get("access_token") or token_header
+    if not token:
+        raise credentials_exception
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
@@ -52,3 +59,4 @@ def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
         return user_id
     except JWTError:
         raise credentials_exception
+

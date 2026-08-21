@@ -92,6 +92,18 @@ class MedicineCreate(BaseModel):
 
 
 
+class MedicineUpdate(BaseModel):
+    name: Optional[str] = None
+    brand: Optional[str] = None
+    price: Optional[int] = None
+    type: Optional[str] = None
+    rx: Optional[bool] = None
+    color: Optional[str] = None
+    stock: Optional[int] = None
+    expiry_date: Optional[str] = None
+    manufacturing_date: Optional[str] = None
+
+
 # Order schemas
 class OrderItemCreate(BaseModel):
     medicine_id: int

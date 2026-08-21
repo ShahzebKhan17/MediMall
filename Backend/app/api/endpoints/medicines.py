@@ -60,3 +60,26 @@ def create_medicine(med_in: schemas.MedicineCreate, db: Session = Depends(get_db
     db.commit()
     db.refresh(new_med)
     return new_med
+
+
+@router.patch("/{id}", response_model=schemas.MedicineResponse)
+def update_medicine(
+    id: int,
+    med_update: schemas.MedicineUpdate,
+    db: Session = Depends(get_db)
+):
+    db_med = db.query(Medicine).filter(Medicine.id == id).first()
+    if not db_med:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Medicine with ID {id} not found."
+        )
+    
+    update_data = med_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_med, field, value)
+    
+    db.commit()
+    db.refresh(db_med)
+    return db_med
+

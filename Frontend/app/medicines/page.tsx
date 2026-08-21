@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, ChevronDown, Clock3, FileUp, MapPin, Minus, Moon, Pill, Plus, Search, ShieldCheck, ShoppingBag, Sun, X } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAppContext } from "../context/AppContext";
 
-const catalogue = [
+import { api } from "../../lib/api";
+
+const initialCatalogue = [
   { id: 1, name: "Paracetamol 650mg", brand: "Dolo 650 · Strip of 15 tablets", price: 34, type: "Pain relief", rx: false, color: "orange" },
   { id: 2, name: "Cetirizine 10mg", brand: "Cetzine · Strip of 10 tablets", price: 28, type: "Allergy care", rx: false, color: "blue" },
   { id: 3, name: "Vitamin D3 60K", brand: "Uprise-D3 · Pack of 4 capsules", price: 116, type: "Vitamins", rx: false, color: "yellow" },
@@ -14,13 +16,31 @@ const catalogue = [
 
 export default function MedicinesPage() {
   const [query, setQuery] = useState("");
+  const [catalogue, setCatalogue] = useState(initialCatalogue);
   const { dark, toggleTheme } = useTheme();
   const { cart, addToCart, updateCartQuantity, removeFromCart, user } = useAppContext();
   const [toast, setToast] = useState("");
 
+  // Initialize search from query parameter and fetch from backend
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get("q");
+      if (q) setQuery(q);
+    }
+
+    api.medicines.getAll().then((data) => {
+      if (data && data.length > 0) {
+        setCatalogue(data);
+      }
+    }).catch((e) => {
+      console.warn("Using local fallback catalogue", e);
+    });
+  }, []);
+
   const results = useMemo(
     () => catalogue.filter(m => `${m.name} ${m.brand} ${m.type}`.toLowerCase().includes(query.toLowerCase())),
-    [query]
+    [catalogue, query]
   );
 
   const handleAdd = (id: number) => {

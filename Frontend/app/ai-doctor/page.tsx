@@ -16,17 +16,17 @@ export default function MediAssistPage() {
     if (text.trim()) setMode("review");
   };
 
-  const handleRequestReview = () => {
-    placeOrder("COD", user?.address || undefined, "Symptom Log: " + text.slice(0, 30) + "...");
+  const handleRequestReview = async () => {
+    await placeOrder("COD", user?.address || undefined, "Symptom Log: " + text.slice(0, 30) + "...");
     alert("Your symptom log has been sent to Care & Cure Pharmacy for pharmacist review! Track the status on your dashboard.");
     location.href = "/user/dashboard";
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     const randomId = Math.floor(100 + Math.random() * 900);
     const fileName = `prescription_uploaded_${randomId}.pdf`;
     addPrescription(fileName);
-    placeOrder("COD", user?.address || undefined, fileName);
+    await placeOrder("COD", user?.address || undefined, fileName);
     alert(`Prescription "${fileName}" uploaded and queued for pharmacy verification!`);
     location.href = "/user/dashboard";
   };

@@ -32,9 +32,9 @@ export default function CheckoutPage() {
   const itemTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const hasRx = cartItems.some(item => item.rx);
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (cart.length === 0) return;
-    placeOrder(method.toUpperCase(), user?.address);
+    await placeOrder(method.toUpperCase(), user?.address);
     setPlaced(true);
   };
 
