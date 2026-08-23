@@ -122,6 +122,32 @@ def place_order(
     return new_order
 
 
+@router.get("/", response_model=List[schemas.OrderResponse])
+def get_all_orders(
+    current_user_id: str = Depends(security.get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == current_user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    if user.role == "pharmacy":
+        orders = (
+            db.query(Order)
+            .filter(Order.pharmacy_id == current_user_id)
+            .order_by(Order.created_at.desc())
+            .all()
+        )
+    else:
+        orders = (
+            db.query(Order)
+            .filter(Order.user_id == current_user_id)
+            .order_by(Order.created_at.desc())
+            .all()
+        )
+    return orders
+
+
 @router.get("/active", response_model=Optional[schemas.OrderResponse])
 def get_active_order(
     current_user_id: str = Depends(security.get_current_user_id),
@@ -176,6 +202,7 @@ def get_incoming_queue(
 
 
 @router.put("/{id}/status", response_model=schemas.OrderResponse)
+@router.patch("/{id}/status", response_model=schemas.OrderResponse)
 def update_order_status(
     id: str,
     status_update: schemas.OrderStatusUpdate,
@@ -183,15 +210,22 @@ def update_order_status(
     db: Session = Depends(get_db),
 ):
     user = db.query(User).filter(User.id == current_user_id).first()
-    if not user or user.role != "pharmacy":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only pharmacy administrators can update order statuses.",
-        )
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     order = db.query(Order).filter(Order.id == id).first()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    # Authorization: Either pharmacy assigned to order, or patient cancelling their own order
+    is_pharmacy_owner = (user.role == "pharmacy" and (order.pharmacy_id == current_user_id or order.pharmacy_id is None))
+    is_order_creator = (order.user_id == current_user_id and status_update.status == "Cancelled")
+    
+    if not (is_pharmacy_owner or is_order_creator or user.role == "pharmacy"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to update this order's status.",
+        )
 
     order.status = status_update.status
     db.commit()

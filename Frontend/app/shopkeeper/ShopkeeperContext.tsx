@@ -27,7 +27,15 @@ const ShopkeeperContext = createContext<ShopkeeperContextProps>({
 });
 
 export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) => {
-  const { orders, updateOrderStatus } = useAppContext();
+  const { orders, updateOrderStatus, refreshOrders } = useAppContext();
+
+  React.useEffect(() => {
+    refreshOrders();
+    const interval = setInterval(() => {
+      refreshOrders();
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Active queue includes orders that are Placed, Review, Confirmed, Packing, Shipped, Arriving
   const queue: ShopOrder[] = orders
@@ -47,7 +55,7 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
       status: order.status,
     }));
 
-  const advanceOrder = (orderId: string) => {
+  const advanceOrder = async (orderId: string) => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
@@ -69,14 +77,16 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
       nextStatus = "Delivered";
     }
 
-    updateOrderStatus(orderId, nextStatus);
+    await updateOrderStatus(orderId, nextStatus);
+    await refreshOrders();
   };
 
   // Keep compatibility with legacy completeOrder by finding the active order for the patient name and advancing/delivering it
-  const completeOrder = (name: string) => {
+  const completeOrder = async (name: string) => {
     const activeForName = orders.find(o => o.name === name && o.status !== "Delivered" && o.status !== "Cancelled");
     if (activeForName) {
-      updateOrderStatus(activeForName.id, "Delivered");
+      await updateOrderStatus(activeForName.id, "Delivered");
+      await refreshOrders();
     }
   };
 
@@ -88,4 +98,5 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
 };
 
 export const useShopkeeper = () => useContext(ShopkeeperContext);
+
 

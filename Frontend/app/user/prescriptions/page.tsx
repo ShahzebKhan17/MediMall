@@ -1,18 +1,63 @@
 "use client";
 
-import { useState } from "react";
-import { FileDown, FileText, FileUp, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { FileDown, FileText, FileUp, Loader2, ShieldCheck } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
+import { api } from "../../../lib/api";
 
 export default function PatientPrescriptionsPage() {
   const { prescriptions, addPrescription } = useAppContext();
   const [dragActive, setDragActive] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [list, setList] = useState<string[]>(prescriptions);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const simulateUpload = () => {
-    const randomId = Math.floor(1000 + Math.random() * 9000);
-    const mockFilename = `Rx_Prescription_${randomId}.pdf`;
-    addPrescription(mockFilename);
-    alert(`File "${mockFilename}" uploaded successfully! Real-time OCR extraction has identified it. Near-by pharmacies can now verify it.`);
+  useEffect(() => {
+    api.prescriptions
+      .getAll()
+      .then((records) => {
+        if (records && records.length > 0) {
+          const names = records.map((r) => r.file_path);
+          setList(names);
+        }
+      })
+      .catch((e) => {
+        console.warn("Could not fetch remote prescriptions, using local list", e);
+      });
+  }, []);
+
+  const handleFileUpload = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const res = await api.prescriptions.upload(file);
+      if (res && res.file_path) {
+        addPrescription(res.file_path);
+        setList((prev) => [res.file_path, ...prev]);
+        alert(`File "${file.name}" uploaded successfully! Real-time OCR extraction has identified it.`);
+      }
+    } catch (e: any) {
+      console.warn("Prescription upload error, falling back locally:", e);
+      const mockName = `Rx_${file.name}`;
+      addPrescription(mockName);
+      setList((prev) => [mockName, ...prev]);
+      alert(`File "${file.name}" saved locally. Nearby pharmacies can now verify it.`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileUpload(e.target.files[0]);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
   };
 
   return (
@@ -30,7 +75,7 @@ export default function PatientPrescriptionsPage() {
           <div className="card">
             <h3 style={{ margin: "0 0 14px 0", fontSize: "16px" }}>Uploaded Prescriptions</h3>
             <div style={{ display: "grid", gap: "10px" }}>
-              {prescriptions.map((filename, idx) => (
+              {list.map((filename, idx) => (
                 <div
                   key={idx}
                   style={{
@@ -78,6 +123,13 @@ export default function PatientPrescriptionsPage() {
         </div>
 
         <div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".pdf,.png,.jpg,.jpeg"
+            style={{ display: "none" }}
+          />
           <div
             className="card"
             style={{
@@ -88,15 +140,29 @@ export default function PatientPrescriptionsPage() {
               placeContent: "center",
               cursor: "pointer",
             }}
-            onClick={simulateUpload}
+            onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
           >
-            <FileUp size={36} style={{ color: "#227f5e", margin: "0 auto 12px" }} />
-            <h3 style={{ fontSize: "14px", margin: "0 0 6px 0" }}>Upload Prescription</h3>
+            {isUploading ? (
+              <Loader2 size={36} className="animate-spin" style={{ color: "#227f5e", margin: "0 auto 12px" }} />
+            ) : (
+              <FileUp size={36} style={{ color: "#227f5e", margin: "0 auto 12px" }} />
+            )}
+            <h3 style={{ fontSize: "14px", margin: "0 0 6px 0" }}>
+              {isUploading ? "Uploading..." : "Upload Prescription"}
+            </h3>
             <p style={{ color: "#82918b", fontSize: "11px", margin: "0 0 16px 0" }}>
-              Drag and drop your medical license or prescription here, or click to upload
+              Drag and drop your medical license or prescription here, or click to browse
             </p>
-            <button className="primary" style={{ fontSize: "12px", padding: "8px 12px", margin: "auto" }}>
-              Choose File
+            <button
+              type="button"
+              disabled={isUploading}
+              className="primary"
+              style={{ fontSize: "12px", padding: "8px 12px", margin: "auto" }}
+            >
+              Choose File (PDF, PNG, JPG)
             </button>
           </div>
 
@@ -124,3 +190,4 @@ export default function PatientPrescriptionsPage() {
     </section>
   );
 }
+

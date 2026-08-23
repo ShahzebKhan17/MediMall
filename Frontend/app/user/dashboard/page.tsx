@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ClipboardList, Clock3, FileText, HeartPulse, MapPin, PackageCheck, Pill, Plus, Search, ShoppingBag } from "lucide-react";
+import { AlertCircle, CheckCircle2, ClipboardList, Clock3, FileText, HeartPulse, MapPin, PackageCheck, Pill, Plus, RefreshCw, Search, ShoppingBag } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 
 export default function UserDashboard() {
-  const { user, orders, addToCart } = useAppContext();
+  const { user, orders, addToCart, serverError, retryConnection } = useAppContext();
   const [toast, setToast] = useState("");
 
   const handleAdd = (id: number, name: string) => {
@@ -48,11 +48,50 @@ export default function UserDashboard() {
   return (
     <section className="dash-content">
       {toast && <div className="toast"><CheckCircle2 size={16} style={{ marginRight: "6px" }}/> {toast}</div>}
+      
+      {serverError && (
+        <div style={{
+          background: "#fff2f0",
+          border: "1px solid #ffccc7",
+          color: "#cf1322",
+          padding: "12px 18px",
+          borderRadius: "8px",
+          marginBottom: "16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "10px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px" }}>
+            <AlertCircle size={18} />
+            <span>{serverError}</span>
+          </div>
+          <button
+            onClick={retryConnection}
+            style={{
+              background: "#cf1322",
+              color: "#fff",
+              border: 0,
+              padding: "4px 10px",
+              borderRadius: "4px",
+              fontSize: "11px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+          >
+            <RefreshCw size={12} /> Retry
+          </button>
+        </div>
+      )}
+
       <div className="welcome">
         <div>
           <p>TODAY</p>
-          <h1>Hello, {user?.name.split(" ")[0]} <span>✦</span></h1>
-          <h2>What can we help you feel better about today?</h2>
+          <h1>Hello, {user ? user.name.split(" ")[0] : "Guest"} <span>✦</span></h1>
+          <h2>{user ? "What can we help you feel better about today?" : "Sign in to track orders and consult licensed pharmacists."}</h2>
         </div>
         <button className="primary" onClick={() => location.href = "/medicines"}>
           <Plus size={17} />New order
@@ -167,26 +206,26 @@ export default function UserDashboard() {
           <div className="profile-content">
             <div className="avatar-large">{userInitials}</div>
             <div>
-              <b>{user?.name || "Ananya Sharma"}</b>
-              <p>{user?.age || 28} years · {user?.gender || "Female"}</p>
+              <b>{user?.name || "Guest User"}</b>
+              <p>{user?.age ? `${user.age} years` : "Age not set"} · {user?.gender || "Not specified"}</p>
               <div className="profile-tags">
-                <span>✦ {user?.allergies || "No known allergies"}</span>
-                <span><MapPin size={12} /> {user?.address ? user.address.split(",")[1] || user.address.split(",")[0] : "Bengaluru"}</span>
+                <span>✦ {user?.allergies || "No allergies listed"}</span>
+                <span><MapPin size={12} /> {user?.address ? (user.address.split(",")[1] || user.address.split(",")[0]) : "Location not set"}</span>
               </div>
             </div>
           </div>
           <div className="profile-details">
             <div>
               <small>Mobile number</small>
-              <b>{user?.phone || "+91 98765 43210"}</b>
+              <b>{user?.phone || "--"}</b>
             </div>
             <div>
               <small>Email address</small>
-              <b>{user?.email || "ananya@example.com"}</b>
+              <b>{user?.email || "Not signed in"}</b>
             </div>
             <div>
               <small>Blood group</small>
-              <b>{user?.bloodGroup || "O+"} Positive</b>
+              <b>{user?.bloodGroup ? `${user.bloodGroup} Positive` : "--"}</b>
             </div>
           </div>
         </section>
@@ -224,8 +263,4 @@ export default function UserDashboard() {
   );
 }
 
-// Inline fallback for CheckCircle2 in toast
-function CheckCircle2({ size, style }: { size?: number, style?: React.CSSProperties }) {
-  return <svg style={style} xmlns="http://www.w3.org/2000/svg" width={size || 24} height={size || 24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-circle-2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>;
-}
 

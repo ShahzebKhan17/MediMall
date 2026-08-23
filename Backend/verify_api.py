@@ -106,20 +106,34 @@ def test_api():
     for q_item in queue:
         print(f" - Order {q_item['id']} by User {q_item['user_id']}: Status is '{q_item['status']}'")
 
-    # 9. Update Order Status
-    print(f"\nPharmacy updating status for order {order['id']} to 'Confirmed'...")
-    updated_order = make_request(f"/orders/{order['id']}/status", method="PUT", data={"status": "Confirmed"}, token=pharm_token)
+    # 9. Update Order Status via PATCH
+    print(f"\nPharmacy updating status for order {order['id']} to 'Confirmed' via PATCH...")
+    updated_order = make_request(f"/orders/{order['id']}/status", method="PATCH", data={"status": "Confirmed"}, token=pharm_token)
     print(f"Updated status is now: {updated_order['status']}")
 
-    # 10. Check Patient Active Order
-    print("\nChecking patient active order...")
+    # 10. Check Patient Active Order & All Orders
+    print("\nChecking patient active order & GET /orders/...")
     active_order = make_request("/orders/active", token=pat_token)
     print(f"Patient active order {active_order['id']} status: '{active_order['status']}'")
+    all_orders = make_request("/orders/", token=pat_token)
+    print(f"Patient has {len(all_orders)} order(s) via GET /orders/.")
 
-    print("\n" + "="*40)
+    # 11. Test AI Doctor / MediAssist Endpoint
+    print("\nTesting AI Doctor symptom analysis (/ai-doctor/analyze)...")
+    symptom_res = make_request("/ai-doctor/analyze", method="POST", data={"symptoms": "I have mild fever and headache since morning."})
+    print(f"AI Doctor response summary: '{symptom_res['summary']}', Urgency: '{symptom_res['urgency_level']}'")
+    print(f"Recommended OTC meds: {[m['name'] for m in symptom_res['recommended_otc']]}")
+
+    # 12. Test Prescriptions listing
+    print("\nChecking /prescriptions/ ...")
+    prescriptions = make_request("/prescriptions/", token=pat_token)
+    print(f"User prescriptions found: {len(prescriptions)}")
+
+    print("\n" + "="*50)
     print("SUCCESS: ALL REST API ENDPOINTS FUNCTION PERFECTLY!")
-    print("="*40)
+    print("="*50)
 
 
 if __name__ == "__main__":
     test_api()
+

@@ -1,30 +1,45 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowLeft, CheckCircle2, ChevronDown, Clock3, CreditCard, MapPin, Moon, Pill, ShieldCheck, Sun, WalletCards } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertCircle, ArrowLeft, CheckCircle2, ChevronDown, Clock3, CreditCard, Loader2, MapPin, Moon, Pill, ShieldCheck, Sun, WalletCards } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
-import { useAppContext } from "../context/AppContext";
-
-const catalogue = [
-  { id: 1, name: "Paracetamol 650mg", brand: "Dolo 650 · Strip of 15 tablets", price: 34, type: "Pain relief", rx: false, color: "orange" },
-  { id: 2, name: "Cetirizine 10mg", brand: "Cetzine · Strip of 10 tablets", price: 28, type: "Allergy care", rx: false, color: "blue" },
-  { id: 3, name: "Vitamin D3 60K", brand: "Uprise-D3 · Pack of 4 capsules", price: 116, type: "Vitamins", rx: false, color: "yellow" },
-  { id: 4, name: "Amoxicillin 500mg", brand: "Mox 500 · Strip of 10 capsules", price: 133, type: "Antibiotic", rx: true, color: "green" },
-];
+import { useAppContext, Medicine } from "../context/AppContext";
+import { api } from "../../lib/api";
 
 export default function CheckoutPage() {
   const { dark, toggleTheme } = useTheme();
   const { cart, user, placeOrder, updateProfile } = useAppContext();
   const [method, setMethod] = useState("upi");
   const [placed, setPlaced] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressInput, setAddressInput] = useState(user?.address || "");
+  const [catalogMeds, setCatalogMeds] = useState<Medicine[]>([]);
 
-  // Hydrate cart items details
+  useEffect(() => {
+    if (user?.address) {
+      setAddressInput(user.address);
+    }
+    api.medicines.getAll().then((data) => {
+      if (data) setCatalogMeds(data);
+    }).catch((e) => console.warn("Could not fetch latest catalog:", e));
+  }, [user]);
+
+  // Hydrate cart items details dynamically
   const cartItems = cart.map(cItem => {
-    const med = catalogue.find(m => m.id === cItem.id)!;
+    const med = cItem.medicine || catalogMeds.find(m => m.id === cItem.id) || {
+      id: cItem.id,
+      name: `Medicine #${cItem.id}`,
+      brand: "Standard Unit",
+      price: 50,
+      color: "blue",
+      rx: false,
+      type: "General",
+    };
     return {
       ...med,
+      id: cItem.id,
       quantity: cItem.quantity,
     };
   });
@@ -34,9 +49,18 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async () => {
     if (cart.length === 0) return;
-    await placeOrder(method.toUpperCase(), user?.address);
-    setPlaced(true);
+    setIsSubmitting(true);
+    setOrderError(null);
+    try {
+      await placeOrder(method.toUpperCase(), addressInput || user?.address);
+      setPlaced(true);
+    } catch (e: any) {
+      setOrderError(e.message || "Failed to place order. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
 
   const handleSaveAddress = () => {
     updateProfile({ address: addressInput });
@@ -205,8 +229,29 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <button disabled={cart.length === 0} onClick={handlePlaceOrder}>
-              Place order <ChevronDown size={17} />
+            {orderError && (
+              <div style={{
+                background: "#fff2f0",
+                border: "1px solid #ffccc7",
+                color: "#cf1322",
+                padding: "10px 14px",
+                borderRadius: "8px",
+                marginTop: "12px",
+                fontSize: "12px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}>
+                <AlertCircle size={16} /> {orderError}
+              </div>
+            )}
+
+            <button disabled={cart.length === 0 || isSubmitting} onClick={handlePlaceOrder}>
+              {isSubmitting ? (
+                <>Processing order... <Loader2 size={16} className="animate-spin" /></>
+              ) : (
+                <>Place order <ChevronDown size={17} /></>
+              )}
             </button>
           </aside>
         </div>

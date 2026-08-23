@@ -221,6 +221,16 @@ export const api = {
   },
 
   prescriptions: {
+    getAll: async () => {
+      return apiFetch<
+        Array<{
+          id: number;
+          user_id: string;
+          file_path: string;
+          uploaded_at: string;
+        }>
+      >("/prescriptions/");
+    },
     upload: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
@@ -235,4 +245,27 @@ export const api = {
       });
     },
   },
+
+  aiDoctor: {
+    analyze: async (symptoms: string, language = "English") => {
+      return apiFetch<{
+        summary: string;
+        condition_overview: string;
+        urgency_level: "Low" | "Moderate" | "High / Urgent";
+        recommended_otc: Array<{
+          name: string;
+          type: string;
+          purpose: string;
+          requires_rx: boolean;
+        }>;
+        lifestyle_advice: string[];
+        disclaimer: string;
+        requires_pharmacist_review: boolean;
+      }>("/ai-doctor/analyze", {
+        method: "POST",
+        body: JSON.stringify({ symptoms, language }),
+      });
+    },
+  },
 };
+

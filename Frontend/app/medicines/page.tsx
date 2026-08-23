@@ -1,41 +1,43 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, Clock3, FileUp, MapPin, Minus, Moon, Pill, Plus, Search, ShieldCheck, ShoppingBag, Sun, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, ChevronDown, Clock3, FileUp, Loader2, MapPin, Minus, Moon, Pill, Plus, RefreshCw, Search, ShieldCheck, ShoppingBag, Sun, X } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
-import { useAppContext } from "../context/AppContext";
-
+import { useAppContext, Medicine } from "../context/AppContext";
 import { api } from "../../lib/api";
-
-const initialCatalogue = [
-  { id: 1, name: "Paracetamol 650mg", brand: "Dolo 650 · Strip of 15 tablets", price: 34, type: "Pain relief", rx: false, color: "orange" },
-  { id: 2, name: "Cetirizine 10mg", brand: "Cetzine · Strip of 10 tablets", price: 28, type: "Allergy care", rx: false, color: "blue" },
-  { id: 3, name: "Vitamin D3 60K", brand: "Uprise-D3 · Pack of 4 capsules", price: 116, type: "Vitamins", rx: false, color: "yellow" },
-  { id: 4, name: "Amoxicillin 500mg", brand: "Mox 500 · Strip of 10 capsules", price: 133, type: "Antibiotic", rx: true, color: "green" },
-];
 
 export default function MedicinesPage() {
   const [query, setQuery] = useState("");
-  const [catalogue, setCatalogue] = useState(initialCatalogue);
+  const [catalogue, setCatalogue] = useState<Medicine[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const { dark, toggleTheme } = useTheme();
   const { cart, addToCart, updateCartQuantity, removeFromCart, user } = useAppContext();
   const [toast, setToast] = useState("");
 
-  // Initialize search from query parameter and fetch from backend
+  const loadCatalogue = async () => {
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const data = await api.medicines.getAll();
+      if (data) {
+        setCatalogue(data);
+      }
+    } catch (e: any) {
+      console.warn("Backend medicines fetch error:", e);
+      setFetchError("Unable to load medicines from the server. Please ensure the backend is running.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const q = params.get("q");
       if (q) setQuery(q);
     }
-
-    api.medicines.getAll().then((data) => {
-      if (data && data.length > 0) {
-        setCatalogue(data);
-      }
-    }).catch((e) => {
-      console.warn("Using local fallback catalogue", e);
-    });
+    loadCatalogue();
   }, []);
 
   const results = useMemo(
@@ -43,9 +45,9 @@ export default function MedicinesPage() {
     [catalogue, query]
   );
 
-  const handleAdd = (id: number) => {
-    addToCart(id);
-    setToast("Added to your cart");
+  const handleAdd = (medicine: Medicine) => {
+    addToCart(medicine.id, medicine);
+    setToast(`Added ${medicine.name} to your cart`);
     setTimeout(() => setToast(""), 1800);
   };
 
@@ -54,7 +56,7 @@ export default function MedicinesPage() {
   // Calculate unique cart count & total price
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const cartTotal = cart.reduce((sum, item) => {
-    const med = catalogue.find(m => m.id === item.id);
+    const med = item.medicine || catalogue.find(m => m.id === item.id);
     return sum + (med ? med.price * item.quantity : 0);
   }, 0);
 
@@ -73,7 +75,9 @@ export default function MedicinesPage() {
         <button className="theme-toggle" onClick={toggleTheme}>
           {dark ? <Sun size={18}/> : <Moon size={18}/>}
         </button>
-        <a className="account-link" href="/user/dashboard">{userInitials}</a>
+        <a className="account-link" href={user ? "/user/dashboard" : "/login"}>
+          {user ? userInitials : "Sign in"}
+        </a>
       </header>
 
       <div className="order-layout">
@@ -96,6 +100,44 @@ export default function MedicinesPage() {
             </div>
           </div>
 
+          {fetchError && (
+            <div style={{
+              background: "#fff2f0",
+              border: "1px solid #ffccc7",
+              color: "#cf1322",
+              padding: "16px 20px",
+              borderRadius: "10px",
+              margin: "16px 0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <AlertCircle size={20} />
+                <span style={{ fontSize: "13px" }}>{fetchError}</span>
+              </div>
+              <button
+                onClick={loadCatalogue}
+                style={{
+                  background: "#cf1322",
+                  color: "#fff",
+                  border: 0,
+                  padding: "6px 14px",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <RefreshCw size={13} /> Retry
+              </button>
+            </div>
+          )}
+
           <div className="pharmacy-strip">
             <div className="pharmacy-dot"><Pill size={19}/></div>
             <div>
@@ -110,36 +152,47 @@ export default function MedicinesPage() {
           </div>
 
           <div className="result-title">
-            <h2>{query ? `Results for “${query}”` : "Popular near you"}</h2>
-            <span>{results.length} medicines available</span>
+            <h2>{query ? `Results for “${query}”` : "Available in Catalog"}</h2>
+            <span>{isLoading ? "Loading medicines..." : `${results.length} medicines available`}</span>
           </div>
 
-          <div className="medicine-grid">
-            {results.map(m => (
-              <article key={m.id} className="medicine-card">
-                <div className={`medicine-art ${m.color}`}>
-                  <Pill size={34}/>
-                  {m.rx && <span>Rx</span>}
+          {isLoading ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "16px", marginTop: "20px" }}>
+              {[1, 2, 3, 4].map(idx => (
+                <div key={idx} className="card" style={{ padding: "20px", textAlign: "center", opacity: 0.6 }}>
+                  <Loader2 size={24} className="animate-spin" style={{ margin: "10px auto", color: "#227f5e" }} />
+                  <span style={{ fontSize: "12px", color: "#888" }}>Fetching live inventory...</span>
                 </div>
-                <div className="medicine-copy">
-                  <p>{m.type}</p>
-                  <h3>{m.name}</h3>
-                  <small>{m.brand}</small>
-                  <div>
-                    <b>₹{m.price}</b>
-                    {m.rx && <em><ShieldCheck size={12}/> Prescription needed</em>}
+              ))}
+            </div>
+          ) : (
+            <div className="medicine-grid">
+              {results.map(m => (
+                <article key={m.id} className="medicine-card">
+                  <div className={`medicine-art ${m.color || "blue"}`}>
+                    <Pill size={34}/>
+                    {m.rx && <span>Rx</span>}
                   </div>
-                </div>
-                <button onClick={() => handleAdd(m.id)} className="add-btn"><Plus size={16}/>Add</button>
-              </article>
-            ))}
-          </div>
+                  <div className="medicine-copy">
+                    <p>{m.type}</p>
+                    <h3>{m.name}</h3>
+                    <small>{m.brand}</small>
+                    <div>
+                      <b>₹{m.price}</b>
+                      {m.rx && <em><ShieldCheck size={12}/> Prescription needed</em>}
+                    </div>
+                  </div>
+                  <button onClick={() => handleAdd(m)} className="add-btn"><Plus size={16}/>Add</button>
+                </article>
+              ))}
+            </div>
+          )}
 
-          {results.length === 0 && (
+          {!isLoading && !fetchError && results.length === 0 && (
             <div className="empty">
               <Search size={25}/>
               <b>No matching medicines found</b>
-              <p>Try another brand or upload a prescription for help.</p>
+              <p>Try another brand or upload a prescription for pharmacist review.</p>
             </div>
           )}
         </section>
@@ -157,10 +210,14 @@ export default function MedicinesPage() {
             <>
               <div className="cart-items">
                 {cart.map((cItem, index) => {
-                  const m = catalogue.find(item => item.id === cItem.id)!;
+                  const m = cItem.medicine || catalogue.find(item => item.id === cItem.id) || {
+                    name: "Medicine Item",
+                    price: 50,
+                    color: "blue",
+                  };
                   return (
                     <div key={`${cItem.id}-${index}`}>
-                      <span className={`cart-pill ${m.color}`}><Pill size={15}/></span>
+                      <span className={`cart-pill ${m.color || "blue"}`}><Pill size={15}/></span>
                       <p>
                         <b>{m.name}</b>
                         <small>₹{m.price} × {cItem.quantity}</small>
@@ -202,4 +259,5 @@ export default function MedicinesPage() {
     </main>
   );
 }
+
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pill, Plus, Search, ShieldCheck, X } from "lucide-react";
+import { AlertCircle, Loader2, Pill, Plus, RefreshCw, Search, ShieldCheck, X } from "lucide-react";
 import { api } from "../../../lib/api";
 
 interface InventoryItem {
@@ -15,16 +15,11 @@ interface InventoryItem {
   status: "In Stock" | "Low Stock" | "Out of Stock";
 }
 
-const defaultInventory: InventoryItem[] = [
-  { id: 1, name: "Paracetamol 650mg", brand: "Dolo 650 · Strip of 15 tablets", price: 34, stock: 124, type: "Pain relief", rx: false, status: "In Stock" },
-  { id: 2, name: "Cetirizine 10mg", brand: "Cetzine · Strip of 10 tablets", price: 28, stock: 82, type: "Allergy care", rx: false, status: "In Stock" },
-  { id: 3, name: "Vitamin D3 60K", brand: "Uprise-D3 · Pack of 4 capsules", price: 116, stock: 4, type: "Vitamins", rx: false, status: "Low Stock" },
-  { id: 4, name: "Amoxicillin 500mg", brand: "Mox 500 · Strip of 10 capsules", price: 133, stock: 0, type: "Antibiotic", rx: true, status: "Out of Stock" },
-];
-
 export default function ShopkeeperInventoryPage() {
   const [query, setQuery] = useState("");
-  const [inventory, setInventory] = useState<InventoryItem[]>(defaultInventory);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newMed, setNewMed] = useState({
     name: "",
@@ -35,11 +30,14 @@ export default function ShopkeeperInventoryPage() {
     rx: false,
   });
 
-  const loadInventory = () => {
-    api.medicines.getAll().then((data) => {
-      if (data && data.length > 0) {
+  const loadInventory = async () => {
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const data = await api.medicines.getAll();
+      if (data) {
         const mapped: InventoryItem[] = data.map((m) => {
-          const stock = m.stock !== undefined ? m.stock : 50;
+          const stock = m.stock !== undefined ? m.stock : 0;
           let status: "In Stock" | "Low Stock" | "Out of Stock" = "In Stock";
           if (stock <= 0) status = "Out of Stock";
           else if (stock < 10) status = "Low Stock";
@@ -56,9 +54,12 @@ export default function ShopkeeperInventoryPage() {
         });
         setInventory(mapped);
       }
-    }).catch((e) => {
-      console.warn("Backend medicines fetch skipped:", e);
-    });
+    } catch (e: any) {
+      console.warn("Backend medicines fetch error:", e);
+      setFetchError("Unable to connect to the backend server to load inventory.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -82,6 +83,8 @@ export default function ShopkeeperInventoryPage() {
       await api.medicines.update(id, { stock: newStock });
     } catch (e) {
       console.warn("Backend stock update error:", e);
+      alert("Failed to sync stock change to database.");
+      loadInventory();
     }
   };
 
@@ -93,7 +96,7 @@ export default function ShopkeeperInventoryPage() {
       await api.medicines.create(newMed);
       setIsAddModalOpen(false);
       setNewMed({ name: "", brand: "", price: 50, type: "Pain relief", stock: 100, rx: false });
-      loadInventory();
+      await loadInventory();
     } catch (e: any) {
       alert("Error adding item: " + (e.message || "Failed"));
     }
@@ -117,6 +120,44 @@ export default function ShopkeeperInventoryPage() {
           <Plus size={17} /> Add item
         </button>
       </div>
+
+      {fetchError && (
+        <div style={{
+          background: "#fff2f0",
+          border: "1px solid #ffccc7",
+          color: "#cf1322",
+          padding: "16px 20px",
+          borderRadius: "10px",
+          marginTop: "16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <AlertCircle size={20} />
+            <span style={{ fontSize: "13px" }}>{fetchError}</span>
+          </div>
+          <button
+            onClick={loadInventory}
+            style={{
+              background: "#cf1322",
+              color: "#fff",
+              border: 0,
+              padding: "6px 14px",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: "bold",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <RefreshCw size={13} /> Retry
+          </button>
+        </div>
+      )}
 
       {isAddModalOpen && (
         <div style={{
@@ -225,71 +266,79 @@ export default function ShopkeeperInventoryPage() {
           </div>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-            <thead>
-              <tr style={{ borderBottom: "2px solid #edf1ee", textAlign: "left", color: "#82918b" }}>
-                <th style={{ padding: "12px 8px" }}>Medicine Name</th>
-                <th style={{ padding: "12px 8px" }}>Category</th>
-                <th style={{ padding: "12px 8px" }}>Price</th>
-                <th style={{ padding: "12px 8px" }}>Stock Level</th>
-                <th style={{ padding: "12px 8px" }}>Status</th>
-                <th style={{ padding: "12px 8px", textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((item) => (
-                <tr key={item.id} style={{ borderBottom: "1px solid #edf1ee" }}>
-                  <td style={{ padding: "12px 8px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ backgroundColor: "#f0f8f4", color: "#227f5e", width: "28px", height: "28px", borderRadius: "6px", display: "grid", placeItems: "center" }}>
-                        <Pill size={15} />
-                      </span>
-                      <div>
-                        <b>{item.name}</b>
-                        <small style={{ display: "block", color: "#82918b", fontSize: "10px" }}>{item.brand}</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td style={{ padding: "12px 8px" }}>{item.type}</td>
-                  <td style={{ padding: "12px 8px" }}>₹{item.price}</td>
-                  <td style={{ padding: "12px 8px" }}><b>{item.stock}</b> items</td>
-                  <td style={{ padding: "12px 8px" }}>
-                    <span
-                      style={{
-                        fontSize: "10px",
-                        fontWeight: "bold",
-                        padding: "3px 6px",
-                        borderRadius: "4px",
-                        backgroundColor: item.status === "In Stock" ? "#e3f9ed" : item.status === "Low Stock" ? "#fffbeb" : "#fee2e2",
-                        color: item.status === "In Stock" ? "#27815f" : item.status === "Low Stock" ? "#b87829" : "#ef4444",
-                      }}
-                    >
-                      {item.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: "12px 8px", textAlign: "right" }}>
-                    <button
-                      onClick={() => toggleStatus(item.id)}
-                      style={{
-                        padding: "5px 10px",
-                        fontSize: "11px",
-                        border: "1px solid #ddd",
-                        backgroundColor: "#fff",
-                        borderRadius: "5px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Toggle Availability
-                    </button>
-                  </td>
+        {isLoading ? (
+          <div style={{ textAlign: "center", padding: "40px", color: "#82918b" }}>
+            <Loader2 size={28} className="animate-spin" style={{ margin: "0 auto 10px", color: "#227f5e" }} />
+            <span style={{ fontSize: "12px" }}>Loading inventory records from database...</span>
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid #edf1ee", textAlign: "left", color: "#82918b" }}>
+                  <th style={{ padding: "12px 8px" }}>Medicine Name</th>
+                  <th style={{ padding: "12px 8px" }}>Category</th>
+                  <th style={{ padding: "12px 8px" }}>Price</th>
+                  <th style={{ padding: "12px 8px" }}>Stock Level</th>
+                  <th style={{ padding: "12px 8px" }}>Status</th>
+                  <th style={{ padding: "12px 8px", textAlign: "right" }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((item) => (
+                  <tr key={item.id} style={{ borderBottom: "1px solid #edf1ee" }}>
+                    <td style={{ padding: "12px 8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ backgroundColor: "#f0f8f4", color: "#227f5e", width: "28px", height: "28px", borderRadius: "6px", display: "grid", placeItems: "center" }}>
+                          <Pill size={15} />
+                        </span>
+                        <div>
+                          <b>{item.name}</b>
+                          <small style={{ display: "block", color: "#82918b", fontSize: "10px" }}>{item.brand}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: "12px 8px" }}>{item.type}</td>
+                    <td style={{ padding: "12px 8px" }}>₹{item.price}</td>
+                    <td style={{ padding: "12px 8px" }}><b>{item.stock}</b> items</td>
+                    <td style={{ padding: "12px 8px" }}>
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          fontWeight: "bold",
+                          padding: "3px 6px",
+                          borderRadius: "4px",
+                          backgroundColor: item.status === "In Stock" ? "#e3f9ed" : item.status === "Low Stock" ? "#fffbeb" : "#fee2e2",
+                          color: item.status === "In Stock" ? "#27815f" : item.status === "Low Stock" ? "#b87829" : "#ef4444",
+                        }}
+                      >
+                        {item.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 8px", textAlign: "right" }}>
+                      <button
+                        onClick={() => toggleStatus(item.id)}
+                        style={{
+                          padding: "5px 10px",
+                          fontSize: "11px",
+                          border: "1px solid #ddd",
+                          backgroundColor: "#fff",
+                          borderRadius: "5px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Toggle Availability
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </section>
   );
 }
+
 
