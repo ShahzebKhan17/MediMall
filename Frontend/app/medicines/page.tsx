@@ -4,32 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, ArrowLeft, Check, ChevronDown, Clock3, FileUp, Loader2, MapPin, Minus, Moon, Pill, Plus, RefreshCw, Search, ShieldCheck, ShoppingBag, Sun, X } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAppContext, Medicine } from "../context/AppContext";
-import { api } from "../../lib/api";
+import { useMedicinesQuery } from "../../lib/hooks/useQueries";
 
 export default function MedicinesPage() {
   const [query, setQuery] = useState("");
-  const [catalogue, setCatalogue] = useState<Medicine[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const { data: catalogue = [], isLoading, isError, refetch } = useMedicinesQuery();
   const { dark, toggleTheme } = useTheme();
   const { cart, addToCart, updateCartQuantity, removeFromCart, user } = useAppContext();
   const [toast, setToast] = useState("");
-
-  const loadCatalogue = async () => {
-    setIsLoading(true);
-    setFetchError(null);
-    try {
-      const data = await api.medicines.getAll();
-      if (data) {
-        setCatalogue(data);
-      }
-    } catch (e: any) {
-      console.warn("Backend medicines fetch error:", e);
-      setFetchError("Unable to load medicines from the server. Please ensure the backend is running.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -37,7 +19,6 @@ export default function MedicinesPage() {
       const q = params.get("q");
       if (q) setQuery(q);
     }
-    loadCatalogue();
   }, []);
 
   const results = useMemo(
@@ -100,7 +81,7 @@ export default function MedicinesPage() {
             </div>
           </div>
 
-          {fetchError && (
+          {isError && (
             <div style={{
               background: "#fff2f0",
               border: "1px solid #ffccc7",
@@ -115,10 +96,10 @@ export default function MedicinesPage() {
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <AlertCircle size={20} />
-                <span style={{ fontSize: "13px" }}>{fetchError}</span>
+                <span style={{ fontSize: "13px" }}>Unable to load medicines from the server. Please ensure the backend is running.</span>
               </div>
               <button
-                onClick={loadCatalogue}
+                onClick={() => refetch()}
                 style={{
                   background: "#cf1322",
                   color: "#fff",
@@ -188,7 +169,7 @@ export default function MedicinesPage() {
             </div>
           )}
 
-          {!isLoading && !fetchError && results.length === 0 && (
+          {!isLoading && !isError && results.length === 0 && (
             <div className="empty">
               <Search size={25}/>
               <b>No matching medicines found</b>

@@ -1,24 +1,23 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { api } from "../../lib/api";
+import React, { createContext, useContext, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCartStore, Medicine, CartItem } from "../../lib/store/useCartStore";
+import {
+  useUserQuery,
+  useOrdersQuery,
+  usePrescriptionsQuery,
+  useLoginMutation,
+  useRegisterMutation,
+  useLogoutMutation,
+  useUpdateProfileMutation,
+  usePlaceOrderMutation,
+  useUpdateOrderStatusMutation,
+  useUploadPrescriptionMutation,
+  queryKeys,
+} from "../../lib/hooks/useQueries";
 
-export interface Medicine {
-  id: number;
-  name: string;
-  brand: string;
-  price: number;
-  type: string;
-  rx: boolean;
-  color: string;
-  stock?: number;
-}
-
-export interface CartItem {
-  id: number;
-  quantity: number;
-  medicine?: Medicine;
-}
+export type { Medicine, CartItem };
 
 export interface OrderItem {
   name: string;
@@ -82,143 +81,110 @@ interface AppContextProps {
 const AppContext = createContext<AppContextProps | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [role, setRole] = useState<"patient" | "pharmacy" | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [prescriptions, setPrescriptions] = useState<string[]>([]);
-  const [isHydrating, setIsHydrating] = useState(true);
-  const [isConnected, setIsConnected] = useState(true);
-  const [serverError, setServerError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  // Zustand Cart Store
+  const { cart, addToCart, removeFromCart, updateCartQuantity, clearCart } = useCartStore();
+
+  // TanStack Queries
+  const userQuery = useUserQuery();
+  const ordersQuery = useOrdersQuery();
+  const prescriptionsQuery = usePrescriptionsQuery();
+
+  // Mutations
+  const loginMutation = useLoginMutation();
+  const registerMutation = useRegisterMutation();
+  const logoutMutation = useLogoutMutation();
+  const updateProfileMutation = useUpdateProfileMutation();
+  const placeOrderMutation = usePlaceOrderMutation();
+  const updateOrderStatusMutation = useUpdateOrderStatusMutation();
+  const uploadPrescriptionMutation = useUploadPrescriptionMutation();
+
+  // Map user data
+  const user: UserProfile | null = useMemo(() => {
+    if (!userQuery.data) return null;
+    const me = userQuery.data;
+    return {
+      name: me.name || "Customer",
+      age: me.age || 28,
+      gender: me.gender || "Not specified",
+      email: me.email,
+      phone: me.phone || "",
+      address: me.address || "",
+      allergies: me.allergies || "No known allergies",
+      bloodGroup: me.blood_group || "O+",
+    };
+  }, [userQuery.data]);
+
+  const role: "patient" | "pharmacy" | null = useMemo(() => {
+    if (!userQuery.data) return null;
+    return (userQuery.data.role as "patient" | "pharmacy") || "patient";
+  }, [userQuery.data]);
+
+  // Map orders data
+  const orders: Order[] = useMemo(() => {
+    if (!ordersQuery.data) return [];
+    return ordersQuery.data.map((bo) => {
+      const itemsList: OrderItem[] = (bo.items || []).map((bi) => ({
+        name: bi.name || "Medicine",
+        brand: bi.brand || "Generic",
+        price: bi.price || 0,
+        quantity: bi.quantity || 1,
+        color: "blue",
+      }));
+      const summary = itemsList.map((it) => `${it.name}${it.quantity > 1 ? ` x${it.quantity}` : ""}`).join(" · ");
+      const hasRx = !!bo.prescription_url;
+      return {
+        id: bo.id,
+        initials: user ? user.name.split(" ").map((n) => n[0]).join("") : "US",
+        name: user?.name || "Customer",
+        itemsSummary: summary || `Prescription Order (${bo.prescription_url || "Attached"})`,
+        time: bo.created_at
+          ? new Date(bo.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+          : "",
+        type: hasRx ? "Prescription review" : "Ready to pack",
+        priority: hasRx ? "Review" : "Pack",
+        status: (bo.status as Order["status"]) || "Placed",
+        itemsList,
+        total: bo.total,
+        address: bo.address,
+        paymentMethod: bo.payment_method,
+        prescription: bo.prescription_url,
+      };
+    });
+  }, [ordersQuery.data, user]);
+
+  // Map prescriptions
+  const prescriptions: string[] = useMemo(() => {
+    if (!prescriptionsQuery.data) return [];
+    return prescriptionsQuery.data.map((p) => p.file_path);
+  }, [prescriptionsQuery.data]);
+
+  const isHydrating = userQuery.isLoading;
+
+  const isConnected = !ordersQuery.isError && !userQuery.isError;
+  const serverError = ordersQuery.isError
+    ? "Unable to connect to MediMall server. Please check your connection."
+    : null;
 
   const refreshOrders = async () => {
-    try {
-      const backendOrders = await api.orders.getAll();
-      setIsConnected(true);
-      setServerError(null);
-      if (backendOrders) {
-        const mappedOrders: Order[] = backendOrders.map((bo) => {
-          const itemsList: OrderItem[] = (bo.items || []).map((bi) => ({
-            name: bi.name || "Medicine",
-            brand: bi.brand || "Generic",
-            price: bi.price || 0,
-            quantity: bi.quantity || 1,
-            color: "blue",
-          }));
-          const summary = itemsList.map((it) => `${it.name}${it.quantity > 1 ? ` x${it.quantity}` : ""}`).join(" · ");
-          const hasRx = !!bo.prescription_url;
-          return {
-            id: bo.id,
-            initials: user ? user.name.split(" ").map((n) => n[0]).join("") : "US",
-            name: user?.name || "Customer",
-            itemsSummary: summary || `Prescription Order (${bo.prescription_url || "Attached"})`,
-            time: new Date(bo.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
-            type: hasRx ? "Prescription review" : "Ready to pack",
-            priority: hasRx ? "Review" : "Pack",
-            status: (bo.status as Order["status"]) || "Placed",
-            itemsList,
-            total: bo.total,
-            address: bo.address,
-            paymentMethod: bo.payment_method,
-            prescription: bo.prescription_url,
-          };
-        });
-        setOrders(mappedOrders);
-        localStorage.setItem("medimall_orders", JSON.stringify(mappedOrders));
-      }
-    } catch (e: any) {
-      console.warn("Could not sync orders from backend:", e);
-      // If we cannot connect to the server, keep existing state or note disconnection
-      if (e.message && e.message.includes("Failed to fetch")) {
-        setIsConnected(false);
-        setServerError("Unable to connect to MediMall server. Please check your connection.");
-      }
-    }
+    await queryClient.invalidateQueries({ queryKey: queryKeys.orders });
   };
-
-  const refreshPrescriptions = async () => {
-    try {
-      const records = await api.prescriptions.getAll();
-      if (records) {
-        setPrescriptions(records.map((r) => r.file_path));
-      }
-    } catch (e) {
-      console.warn("Could not fetch remote prescriptions:", e);
-    }
-  };
-
-  const hydrateSession = async () => {
-    setIsHydrating(true);
-    try {
-      // 1. Load active cart from localStorage
-      const storedCart = localStorage.getItem("medimall_cart");
-      if (storedCart) {
-        setCart(JSON.parse(storedCart));
-      }
-
-      // 2. Fetch authenticated user profile from backend
-      const me = await api.auth.getMe();
-      if (me) {
-        const profile: UserProfile = {
-          name: me.name,
-          age: me.age || 28,
-          gender: me.gender || "Not specified",
-          email: me.email,
-          phone: me.phone || "",
-          address: me.address || "",
-          allergies: me.allergies || "No known allergies",
-          bloodGroup: me.blood_group || "O+",
-        };
-        setUser(profile);
-        const userRole = (me.role as "patient" | "pharmacy") || "patient";
-        setRole(userRole);
-        localStorage.setItem("medimall_user", JSON.stringify(profile));
-        localStorage.setItem("medimall_role", JSON.stringify(userRole));
-        setIsConnected(true);
-        setServerError(null);
-
-        // Fetch user's real orders and prescriptions
-        await refreshOrders();
-        await refreshPrescriptions();
-      }
-    } catch (e: any) {
-      // Session expired or unauthenticated
-      setUser(null);
-      setRole(null);
-      setOrders([]);
-      setPrescriptions([]);
-      if (e.message && e.message.includes("Failed to fetch")) {
-        setIsConnected(false);
-        setServerError("MediMall server is currently unreachable. Make sure backend is running on port 8000.");
-      }
-    } finally {
-      setIsHydrating(false);
-    }
-  };
-
-  useEffect(() => {
-    hydrateSession();
-  }, []);
 
   const retryConnection = async () => {
-    await hydrateSession();
-  };
-
-  const saveCart = (newCart: CartItem[]) => {
-    setCart(newCart);
-    localStorage.setItem("medimall_cart", JSON.stringify(newCart));
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.user }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.prescriptions }),
+    ]);
   };
 
   const login = async (email: string, targetRole: "patient" | "pharmacy", password = "securepassword") => {
-    const res = await api.auth.login({ email, password });
-    if (!res) {
-      throw new Error("Invalid login credentials.");
-    }
-    await hydrateSession();
+    await loginMutation.mutateAsync({ email, password });
   };
 
   const registerUser = async (profile: Partial<UserProfile>, targetRole: "patient" | "pharmacy", password = "securepassword") => {
-    await api.auth.register({
+    await registerMutation.mutateAsync({
       email: profile.email || "user@example.com",
       password,
       name: profile.name || "New User",
@@ -228,49 +194,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       allergies: profile.allergies,
       blood_group: profile.bloodGroup,
     });
-    await hydrateSession();
   };
 
   const logout = async () => {
     try {
-      await api.auth.logout();
+      await logoutMutation.mutateAsync();
     } catch (e) {
       console.warn("Backend logout error:", e);
     }
-    setUser(null);
-    setRole(null);
-    setCart([]);
-    setOrders([]);
-    setPrescriptions([]);
+    clearCart();
     localStorage.removeItem("medimall_user");
     localStorage.removeItem("medimall_role");
-    localStorage.removeItem("medimall_cart");
-    localStorage.removeItem("medimall_orders");
-  };
-
-  const addToCart = (id: number, medicine?: Medicine) => {
-    const existing = cart.find((item) => item.id === id);
-    if (existing) {
-      saveCart(cart.map((item) => (item.id === id ? { ...item, quantity: item.quantity + 1, medicine: medicine || item.medicine } : item)));
-    } else {
-      saveCart([...cart, { id, quantity: 1, medicine }]);
-    }
-  };
-
-  const removeFromCart = (id: number) => {
-    saveCart(cart.filter((item) => item.id !== id));
-  };
-
-  const updateCartQuantity = (id: number, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(id);
-    } else {
-      saveCart(cart.map((item) => (item.id === id ? { ...item, quantity } : item)));
-    }
-  };
-
-  const clearCart = () => {
-    saveCart([]);
   };
 
   const placeOrder = async (paymentMethod: string, customAddress?: string, prescriptionName?: string): Promise<string> => {
@@ -278,7 +212,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error("Cannot place an empty order.");
     }
 
-    const orderRes = await api.orders.place({
+    const orderRes = await placeOrderMutation.mutateAsync({
       payment_method: paymentMethod,
       address: customAddress || user?.address || "",
       prescription_name: prescriptionName,
@@ -290,22 +224,24 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     clearCart();
-    await refreshOrders();
     return orderRes.id;
   };
 
   const updateOrderStatus = async (orderId: string, status: Order["status"]) => {
-    await api.orders.updateStatus(orderId, status);
-    await refreshOrders();
+    await updateOrderStatusMutation.mutateAsync({ orderId, status });
   };
 
   const addPrescription = (name: string) => {
-    setPrescriptions((prev) => [name, ...prev]);
+    // Invalidate prescriptions cache or optimistically append
+    queryClient.setQueryData(queryKeys.prescriptions, (old: any[] = []) => [
+      { id: Date.now(), user_id: "", file_path: name, uploaded_at: new Date().toISOString() },
+      ...old,
+    ]);
   };
 
   const updateProfile = async (profile: Partial<UserProfile>) => {
     if (!user) return;
-    await api.auth.updateMe({
+    await updateProfileMutation.mutateAsync({
       name: profile.name,
       phone: profile.phone,
       address: profile.address,
@@ -314,9 +250,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       age: profile.age,
       gender: profile.gender,
     });
-    const updated = { ...user, ...profile };
-    setUser(updated);
-    localStorage.setItem("medimall_user", JSON.stringify(updated));
   };
 
   return (
@@ -357,5 +290,3 @@ export const useAppContext = () => {
   }
   return context;
 };
-
-

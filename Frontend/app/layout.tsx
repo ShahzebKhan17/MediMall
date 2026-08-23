@@ -13,6 +13,7 @@ import "./auth.css";
 import "./register.css";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AppProvider } from "./context/AppContext";
+import { QueryProvider } from "../components/providers/QueryProvider";
 
 export const metadata: Metadata = { title: "MediMall — Medicine, nearby", description: "Your local pharmacy, delivered in minutes." };
 
@@ -20,9 +21,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
-        <ThemeProvider>
-          <AppProvider>{children}</AppProvider>
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            <AppProvider>{children}</AppProvider>
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );
