@@ -109,37 +109,71 @@ Each pharmacy can analyze its own business data, including:
 # 🏗️ System Architecture
 
 ```text
-                    ┌─────────────────────┐
-                    │       User          │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   Next.js Frontend  │
-                    │       React         │
-                    └──────────┬──────────┘
-                               │
-                         REST API
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   FastAPI Backend   │
-                    │       Python        │
-                    └──────────┬──────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-              ▼                ▼                ▼
-        ┌──────────┐     ┌──────────┐    ┌────────────┐
-        │PostgreSQL│     │ AI Layer │    │  Pharmacy  │
-        │ Database │     │          │    │  Routing   │
-        └──────────┘     └──────────┘    └────────────┘
-                               │
-                               ▼
-                     Prescription Analysis
-                               │
-                               ▼
-                       Pharmacist Review
-                               │
-                               ▼
-                          Order Dispatch
+                    ┌─────────────────────────────────────────┐
+                    │               Web Client                │
+                    │   Next.js 15 · React 19 · TypeScript    │
+                    ├────────────────────┬────────────────────┤
+                    │   Client State     │    Server State    │
+                    │   Zustand Store    │   TanStack Query   │
+                    │  (Persistent Cart) │  (Cache & Sync)    │
+                    └──────────┬─────────┴──────────┬─────────┘
+                               │                    │
+                               └──────────┬─────────┘
+                                          │
+                                       REST API
+                                          │
+                                          ▼
+                    ┌─────────────────────────────────────────┐
+                    │             FastAPI Backend             │
+                    │         Python · JWT Auth · CORS        │
+                    └──────────┬──────────┬─────────┬─────────┘
+                               │          │         │
+               ┌───────────────┘          │         └───────────────┐
+               ▼                          ▼                         ▼
+        ┌──────────────┐           ┌──────────────┐          ┌──────────────┐
+        │  PostgreSQL  │           │   AI Doctor  │          │   Pharmacy   │
+        │  / SQLite DB │           │    Engine    │          │   Routing    │
+        └──────────────┘           └──────────────┘          └──────────────┘
+```
+
+---
+
+## 🛠️ Tech Stack & State Management
+
+### 🎨 Frontend
+- **Framework**: Next.js 15 (App Router) + React 19 + TypeScript
+- **State Management Architecture**:
+  - 🔄 **TanStack Query (React Query v5)**: Manages all server state (user profile, medicine catalog, live orders queue, prescriptions). Features automatic background refetching, query deduplication, and declarative cache invalidation on mutations.
+  - ⚡ **Zustand (v5)**: Manages pure client-side state (shopping cart) with built-in `persist` middleware for local storage synchronization.
+- **Icons & UI**: Lucide React + custom responsive CSS design system with Dark/Light theme switching.
+
+### ⚙️ Backend
+- **Framework**: FastAPI (Python 3.10+)
+- **Database & ORM**: SQLAlchemy with SQLite (local development) / PostgreSQL (production)
+- **Authentication**: JWT tokens via HttpOnly cookies and Bearer authorization headers with Bcrypt password hashing
+- **Geocoding & Dispatch**: Haversine distance-based hyperlocal pharmacy matching algorithm
+
+---
+
+## 🚦 Getting Started
+
+### 1. Backend Setup
+```bash
+cd Backend
+python -m venv .venv
+# On Windows:
+.venv\Scripts\activate
+# On Linux/macOS:
+source .venv/bin/activate
+
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+### 2. Frontend Setup
+```bash
+cd Frontend
+npm install
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
