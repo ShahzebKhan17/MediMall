@@ -158,3 +158,27 @@ class PrescriptionResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Razorpay schemas
+class RazorpayOrderCreate(BaseModel):
+    items: List[OrderItemCreate]
+    address: Optional[str] = None
+    prescription_name: Optional[str] = None
+
+
+class RazorpayOrderResponse(BaseModel):
+    razorpay_order_id: str
+    amount: int  # Amount in paise (e.g. 50000 for ₹500)
+    currency: str = "INR"
+    key_id: str
+
+
+class RazorpayVerifyRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    items: List[OrderItemCreate]
+    address: Optional[str] = None
+    prescription_name: Optional[str] = None
+    payment_method: str = "Razorpay"

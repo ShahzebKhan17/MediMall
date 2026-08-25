@@ -16,12 +16,16 @@ venv/
 ENV/
 env/
 
-# Environment variables
+# Environment variables & secrets
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env*
+*.env
+*.env.local
+**/.env
+**/.env.local
+**/.env.*
+!*.example
+!**/*.example
 
 # Operating System Files
 .DS_Store

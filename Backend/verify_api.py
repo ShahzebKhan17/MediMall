@@ -129,6 +129,23 @@ def test_api():
     prescriptions = make_request("/prescriptions/", token=pat_token)
     print(f"User prescriptions found: {len(prescriptions)}")
 
+    # 13. Test Razorpay Order Create & Verification
+    print("\nTesting Razorpay Order Create (/orders/razorpay/create)...")
+    rzp_create = make_request("/orders/razorpay/create", method="POST", data={
+        "items": [{"medicine_id": 1, "quantity": 1}]
+    }, token=pat_token)
+    print(f"Created Razorpay session: Order ID = {rzp_create['razorpay_order_id']}, Amount = {rzp_create['amount']} paise")
+
+    print("\nTesting Razorpay Verification (/orders/razorpay/verify)...")
+    rzp_verify = make_request("/orders/razorpay/verify", method="POST", data={
+        "razorpay_order_id": rzp_create["razorpay_order_id"],
+        "razorpay_payment_id": f"pay_test_{rand_id}",
+        "razorpay_signature": "test_mock_signature",
+        "payment_method": "UPI",
+        "items": [{"medicine_id": 1, "quantity": 1}]
+    }, token=pat_token)
+    print(f"Verified & Created Order ID: {rzp_verify['id']}, Status: {rzp_verify['status']}, Method: {rzp_verify['payment_method']}")
+
     print("\n" + "="*50)
     print("SUCCESS: ALL REST API ENDPOINTS FUNCTION PERFECTLY!")
     print("="*50)

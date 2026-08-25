@@ -218,6 +218,43 @@ export const api = {
         body: JSON.stringify({ status }),
       });
     },
+    createRazorpayOrder: async (data: {
+      items: Array<{ medicine_id: number; quantity: number }>;
+      address?: string;
+      prescription_name?: string;
+    }) => {
+      return apiFetch<{
+        razorpay_order_id: string;
+        amount: number;
+        currency: string;
+        key_id: string;
+      }>("/orders/razorpay/create", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    verifyRazorpayOrder: async (data: {
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+      payment_method?: string;
+      address?: string;
+      prescription_name?: string;
+      items: Array<{ medicine_id: number; quantity: number }>;
+    }) => {
+      return apiFetch<{
+        id: string;
+        user_id: string;
+        status: string;
+        total: number;
+        address: string;
+        payment_method: string;
+        items: Array<any>;
+      }>("/orders/razorpay/verify", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
   },
 
   prescriptions: {

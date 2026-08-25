@@ -231,3 +231,188 @@ def update_order_status(
     db.commit()
     db.refresh(order)
     return order
+
+
+@router.post("/razorpay/create", response_model=schemas.RazorpayOrderResponse)
+def create_razorpay_order(
+    payload: schemas.RazorpayOrderCreate,
+    current_user_id: str = Depends(security.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    from app.core.config import get_settings
+    settings = get_settings()
+
+    user = db.query(User).filter(User.id == current_user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if not payload.items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The cart must contain at least one item.",
+        )
+
+    total = 0
+    for item in payload.items:
+        med = db.query(Medicine).filter(Medicine.id == item.medicine_id).first()
+        if not med:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Medicine ID {item.medicine_id} not found.",
+            )
+        if med.stock < item.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Insufficient stock for {med.name}. Available: {med.stock}",
+            )
+        total += med.price * item.quantity
+
+    amount_in_paise = int(total * 100)
+    key_id = settings.razorpay_key_id or "rzp_test_placeholder"
+    key_secret = settings.razorpay_key_secret or "placeholder_secret"
+
+    rzp_order_id = f"order_test_{current_user_id[:8]}_{int(total)}"
+    try:
+        import razorpay
+        client = razorpay.Client(auth=(key_id, key_secret))
+        razorpay_data = {
+            "amount": amount_in_paise,
+            "currency": "INR",
+            "receipt": f"rcpt_{current_user_id[:8]}",
+            "notes": {
+                "user_id": current_user_id,
+                "user_name": user.name,
+            },
+        }
+        rzp_order = client.order.create(data=razorpay_data)
+        if rzp_order and "id" in rzp_order:
+            rzp_order_id = rzp_order["id"]
+    except Exception as e:
+        # Fallback to simulated order ID for local test environments
+        print(f"Razorpay Client creation warning: {e}. Using simulated order ID {rzp_order_id}")
+
+    return schemas.RazorpayOrderResponse(
+        razorpay_order_id=rzp_order_id,
+        amount=amount_in_paise,
+        currency="INR",
+        key_id=key_id,
+    )
+
+
+@router.post("/razorpay/verify", response_model=schemas.OrderResponse, status_code=status.HTTP_201_CREATED)
+def verify_razorpay_payment(
+    verify_in: schemas.RazorpayVerifyRequest,
+    current_user_id: str = Depends(security.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    from app.core.config import get_settings
+    settings = get_settings()
+
+    user = db.query(User).filter(User.id == current_user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    address = verify_in.address or user.address
+    if not address:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A delivery address is required.",
+        )
+
+    if not verify_in.items:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The cart must contain at least one item.",
+        )
+
+    # Cryptographic signature check (when using real keys)
+    key_id = settings.razorpay_key_id
+    key_secret = settings.razorpay_key_secret
+    if key_id and key_secret and not key_id.startswith("rzp_test_placeholder"):
+        try:
+            import razorpay
+            client = razorpay.Client(auth=(key_id, key_secret))
+            client.utility.verify_payment_signature({
+                "razorpay_order_id": verify_in.razorpay_order_id,
+                "razorpay_payment_id": verify_in.razorpay_payment_id,
+                "razorpay_signature": verify_in.razorpay_signature,
+            })
+        except Exception as e:
+            # If verification fails with real keys, raise 400
+            print(f"Razorpay Signature Verification Error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Payment signature verification failed. Transaction cannot be confirmed.",
+            )
+
+    total = 0
+    has_rx = False
+    items_to_create = []
+
+    for item in verify_in.items:
+        med = db.query(Medicine).filter(Medicine.id == item.medicine_id).first()
+        if not med:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Medicine ID {item.medicine_id} not found.",
+            )
+        if med.rx:
+            has_rx = True
+        if med.stock < item.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Insufficient stock for {med.name}. Available: {med.stock}",
+            )
+        total += med.price * item.quantity
+        items_to_create.append((med, item.quantity))
+
+    # Proximity Search: Match nearest pharmacy
+    patient_lat = user.latitude if user.latitude is not None else 12.9716
+    patient_lng = user.longitude if user.longitude is not None else 77.5946
+
+    pharmacies = db.query(User).filter(User.role == "pharmacy").all()
+    if not pharmacies:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No registered pharmacies are available to fulfill this order.",
+        )
+
+    pharmacy_distances = []
+    for pharm in pharmacies:
+        p_lat = pharm.latitude if pharm.latitude is not None else 12.9716
+        p_lng = pharm.longitude if pharm.longitude is not None else 77.5946
+        dist = haversine_distance(patient_lat, patient_lng, p_lat, p_lng)
+        pharmacy_distances.append((pharm, dist))
+
+    pharmacy_distances.sort(key=lambda x: x[1])
+    assigned_pharmacy, _ = pharmacy_distances[0]
+
+    status_str = "Review" if has_rx else "Confirmed"
+
+    new_order = Order(
+        user_id=current_user_id,
+        pharmacy_id=assigned_pharmacy.id,
+        status=status_str,
+        total=total,
+        address=address,
+        payment_method=f"Razorpay ({verify_in.payment_method}) [Ref: {verify_in.razorpay_payment_id}]",
+        prescription_url=verify_in.prescription_name,
+    )
+    db.add(new_order)
+    db.commit()
+    db.refresh(new_order)
+
+    # Decrement inventory and record items
+    for med, qty in items_to_create:
+        med.stock -= qty
+        new_item = OrderItem(
+            order_id=new_order.id,
+            medicine_id=med.id,
+            quantity=qty,
+            price=med.price,
+        )
+        db.add(new_item)
+
+    db.commit()
+    db.refresh(new_order)
+    return new_order
