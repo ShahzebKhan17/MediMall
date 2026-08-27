@@ -14,14 +14,20 @@ settings = get_settings()
 app = FastAPI(title=settings.app_name, version="0.1.0")
 
 origins = [
-    settings.frontend_origin,
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    origin.strip().rstrip("/")
+    for origin in [
+        settings.frontend_origin,
+        "https://medi-mall-three.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    if origin
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
