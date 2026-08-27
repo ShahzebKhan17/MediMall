@@ -137,10 +137,15 @@ def test_api():
     print(f"Created Razorpay session: Order ID = {rzp_create['razorpay_order_id']}, Amount = {rzp_create['amount']} paise")
 
     print("\nTesting Razorpay Verification (/orders/razorpay/verify)...")
+    import hmac, hashlib
+    pay_id = f"pay_test_{rand_id}"
+    order_id = rzp_create["razorpay_order_id"]
+    secret = "5sS8nbHMrKe0IHfGT1ZB90EK"
+    valid_sig = hmac.new(secret.encode(), f"{order_id}|{pay_id}".encode(), hashlib.sha256).hexdigest()
     rzp_verify = make_request("/orders/razorpay/verify", method="POST", data={
-        "razorpay_order_id": rzp_create["razorpay_order_id"],
-        "razorpay_payment_id": f"pay_test_{rand_id}",
-        "razorpay_signature": "test_mock_signature",
+        "razorpay_order_id": order_id,
+        "razorpay_payment_id": pay_id,
+        "razorpay_signature": valid_sig,
         "payment_method": "UPI",
         "items": [{"medicine_id": 1, "quantity": 1}]
     }, token=pat_token)

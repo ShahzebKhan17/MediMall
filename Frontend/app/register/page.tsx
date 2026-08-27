@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Building2, Check, ChevronLeft, Moon, ShieldCheck, Sun, UserRound } from "lucide-react";
+import { ArrowRight, Building2, Check, ChevronLeft, Moon, ShieldCheck, Sun, UserRound, X, FileText, Lock } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAppContext } from "../context/AppContext";
 
@@ -18,9 +18,15 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [medicalLicense, setMedicalLicense] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!agreedToTerms) {
+      alert("Please agree to MediMall's Terms of Service and Privacy Policy to continue.");
+      return;
+    }
     await registerUser(
       {
         name,
@@ -85,6 +91,7 @@ export default function Register() {
               {role === "patient" ? "Full name" : "Pharmacy name"}
               <input
                 required
+                type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={role === "patient" ? "Your full name" : "Name of your pharmacy"}
@@ -94,6 +101,7 @@ export default function Register() {
               {role === "patient" ? "Mobile number" : "Owner name"}
               <input
                 required
+                type={role === "patient" ? "tel" : "text"}
                 value={phoneOrOwner}
                 onChange={(e) => setPhoneOrOwner(e.target.value)}
                 placeholder={role === "patient" ? "10-digit mobile number" : "Owner's full name"}
@@ -105,6 +113,7 @@ export default function Register() {
               Medical licence number
               <input 
                 required 
+                type="text"
                 value={medicalLicense} 
                 onChange={(e) => setMedicalLicense(e.target.value)} 
                 placeholder="Enter licence number" 
@@ -132,7 +141,26 @@ export default function Register() {
             />
           </label>
           <label className="terms">
-            <input required type="checkbox" />I agree to MediMall&apos;s terms and privacy policy.
+            <input
+              type="checkbox"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
+            />
+            <span>
+              I agree to MediMall&apos;s{" "}
+              <button
+                type="button"
+                className="terms-link-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowTermsModal(true);
+                }}
+              >
+                terms and privacy policy
+              </button>
+              .
+            </span>
           </label>
           <button className="auth-submit">
             Create account <ArrowRight size={17} />
@@ -145,6 +173,81 @@ export default function Register() {
       <footer>
         <ShieldCheck size={16} />Your health information is private and protected.
       </footer>
+
+      {/* Terms & Privacy Policy Interactive Modal */}
+      {showTermsModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowTermsModal(false)}
+        >
+          <div
+            className="terms-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="terms-modal-header">
+              <h3>
+                <ShieldCheck size={20} color="#248b63" />
+                MediMall Terms of Service &amp; Privacy Policy
+              </h3>
+              <button
+                className="terms-modal-close"
+                onClick={() => setShowTermsModal(false)}
+                aria-label="Close modal"
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            <div className="terms-modal-body">
+              <h4>1. Acceptance of Terms</h4>
+              <p>
+                By creating an account on MediMall, you agree to comply with and be bound by all applicable laws, healthcare regulations, and these Terms of Service. If you are registering as a pharmacy, you warrant that you hold a valid, active retail drug license (Form 20/21).
+              </p>
+
+              <h4>2. Prescription Validation &amp; Scheduled Drugs</h4>
+              <p>
+                All orders containing Schedule H, H1, or X prescription medications require verification by a registered pharmacist before dispatch. Orders without valid authorized prescriptions may be cancelled or modified in accordance with applicable drug regulations.
+              </p>
+
+              <h4>3. Privacy &amp; Health Data Protection</h4>
+              <p>
+                Your personal health records, prescription uploads, and clinical data are encrypted in transit and at rest. MediMall adheres strictly to digital health data protection standards and will never sell or monetize your sensitive medical history.
+              </p>
+
+              <h4>4. Order Fulfillment &amp; Pharmacy Proximity Routing</h4>
+              <p>
+                Orders placed through MediMall are routed to licensed neighborhood partner pharmacies based on geographical proximity and stock availability to ensure rapid dispatch and optimal cold-chain preservation.
+              </p>
+
+              <h4>5. Cancellation &amp; Refund Policy</h4>
+              <p>
+                Orders may be cancelled before pharmacist confirmation for a full instant refund. Once medicines are dispatched or unsealed, returns are subject to safety checks in compliance with drug safety norms.
+              </p>
+            </div>
+
+            <div className="terms-modal-foot">
+              <button
+                type="button"
+                className="terms-modal-btn"
+                style={{ background: "#e8edea", color: "#28483e" }}
+                onClick={() => setShowTermsModal(false)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="terms-modal-btn primary"
+                onClick={() => {
+                  setAgreedToTerms(true);
+                  setShowTermsModal(false);
+                }}
+              >
+                I Agree &amp; Accept
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

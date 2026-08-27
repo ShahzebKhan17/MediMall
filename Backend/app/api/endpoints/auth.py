@@ -146,3 +146,23 @@ def update_current_user(
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.get("/users/summary")
+def get_users_summary(db: Session = Depends(get_db)):
+    """Developer endpoint: Returns registration stats and user counts."""
+    total = db.query(User).count()
+    patients = db.query(User).filter(User.role == "patient").count()
+    pharmacies = db.query(User).filter(User.role == "pharmacy").count()
+    return {
+        "total_users": total,
+        "patients": patients,
+        "pharmacies": pharmacies,
+    }
+
+
+@router.get("/users/all", response_model=list[schemas.UserProfile])
+def get_all_users(db: Session = Depends(get_db)):
+    """Developer endpoint: List all registered users."""
+    return db.query(User).order_by(User.created_at.desc()).all()
+

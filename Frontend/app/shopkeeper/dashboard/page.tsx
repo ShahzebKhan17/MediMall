@@ -4,7 +4,7 @@ import { BarChart3, Check, ChevronDown, Clock3, FileCheck2, Package, ShieldCheck
 import { useShopkeeper } from "../ShopkeeperContext";
 
 export default function ShopkeeperDashboard() {
-  const { queue, advanceOrder } = useShopkeeper();
+  const { queue, advanceOrder, isAudioRinging, silenceAlert } = useShopkeeper();
 
   const getButtonDetails = (status: string, priority: string) => {
     if (priority === "Review") {
@@ -36,6 +36,52 @@ export default function ShopkeeperDashboard() {
 
   return (
     <section className="shop-content">
+      {/* Urgent Incoming Order Ringing Banner */}
+      {isAudioRinging && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #fff3f0, #ffebe6)",
+            border: "1px solid #f8b4a7",
+            borderRadius: "12px",
+            padding: "16px 20px",
+            marginBottom: "24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            boxShadow: "0 8px 24px rgba(223, 56, 38, 0.15)",
+            animation: "urgentPulse 1.5s infinite",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            <span style={{ fontSize: "24px", animation: "bellVibrate 0.8s infinite" }}>🚨</span>
+            <div>
+              <b style={{ color: "#bd2b1b", fontSize: "14px", display: "block" }}>
+                Incoming Order Alert!
+              </b>
+              <p style={{ margin: "3px 0 0", fontSize: "12px", color: "#6a2f26" }}>
+                Urgent chime is playing. Review or advance the order from the queue below to stop the chime.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={silenceAlert}
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e25848",
+              color: "#bd2b1b",
+              borderRadius: "8px",
+              padding: "8px 14px",
+              fontSize: "11px",
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
+            }}
+          >
+            Mute Sound
+          </button>
+        </div>
+      )}
+
       <div className="shop-welcome">
         <div>
           <p>TODAY</p>

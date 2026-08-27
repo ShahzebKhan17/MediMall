@@ -1,10 +1,12 @@
 "use client";
 
 import { useAppContext } from "../../context/AppContext";
+import { useShopkeeper } from "../ShopkeeperContext";
 import { FileCheck2, FileText, CheckCircle2, XCircle } from "lucide-react";
 
 export default function ShopkeeperPrescriptionsPage() {
   const { orders, updateOrderStatus } = useAppContext();
+  const { silenceAlert } = useShopkeeper();
 
   // Orders that are currently awaiting prescription review
   const rxOrders = orders.filter(
@@ -73,7 +75,11 @@ export default function ShopkeeperPrescriptionsPage() {
 
                 <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
                   <button
-                    onClick={() => { updateOrderStatus(order.id, "Cancelled"); alert("Prescription rejected. Order has been cancelled."); }}
+                    onClick={() => {
+                      silenceAlert();
+                      updateOrderStatus(order.id, "Cancelled");
+                      alert("Prescription rejected. Order has been cancelled.");
+                    }}
                     style={{
                       flex: 1,
                       padding: "10px",
@@ -93,7 +99,11 @@ export default function ShopkeeperPrescriptionsPage() {
                     <XCircle size={15} /> Reject Rx
                   </button>
                   <button
-                    onClick={() => { updateOrderStatus(order.id, "Confirmed"); alert("Prescription approved! Order moved to packing queue."); }}
+                    onClick={() => {
+                      silenceAlert();
+                      updateOrderStatus(order.id, "Confirmed");
+                      alert("Prescription approved! Order moved to packing queue.");
+                    }}
                     style={{
                       flex: 1,
                       padding: "10px",
