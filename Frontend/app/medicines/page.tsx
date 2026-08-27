@@ -5,6 +5,7 @@ import { AlertCircle, ArrowLeft, Check, ChevronDown, Clock3, FileUp, Loader2, Ma
 import { useTheme } from "../context/ThemeContext";
 import { useAppContext, Medicine } from "../context/AppContext";
 import { useMedicinesQuery } from "../../lib/hooks/useQueries";
+import { MedicineSearchDropdown } from "../../components/ui/MedicineSearchDropdown";
 
 export default function MedicinesPage() {
   const [query, setQuery] = useState("");
@@ -67,17 +68,21 @@ export default function MedicinesPage() {
           <div className="catalogue-head">
             <p>MEDICINES, CLOSE TO HOME</p>
             <h1>What are you looking for?</h1>
-            <div className="big-search">
-              <Search size={22}/>
-              <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search medicine or brand name"/>
-              <button onClick={() => location.href = "/ai-doctor"}><FileUp size={17}/>Upload prescription</button>
+            
+            <div style={{ margin: "16px 0" }}>
+              <MedicineSearchDropdown
+                initialQuery={query}
+                placeholder="Search medicine by name, brand, or wrapper..."
+                onSearchSubmit={(q) => setQuery(q)}
+              />
             </div>
+
             <div className="category-row">
-              <button className="selected" onClick={() => setQuery("")}>All medicines</button>
-              <button onClick={() => setQuery("Pain relief")}>Pain relief</button>
-              <button onClick={() => setQuery("Allergy")}>Cold & allergy</button>
-              <button onClick={() => setQuery("Vitamins")}>Vitamins</button>
-              <button onClick={() => setQuery("Antibiotic")}>Antibiotics</button>
+              <button className={!query ? "selected" : ""} onClick={() => setQuery("")}>All medicines</button>
+              <button className={query === "Pain relief" ? "selected" : ""} onClick={() => setQuery("Pain relief")}>Pain relief</button>
+              <button className={query === "Allergy" ? "selected" : ""} onClick={() => setQuery("Allergy")}>Cold & allergy</button>
+              <button className={query === "Vitamins" ? "selected" : ""} onClick={() => setQuery("Vitamins")}>Vitamins</button>
+              <button className={query === "Antibiotic" ? "selected" : ""} onClick={() => setQuery("Antibiotic")}>Antibiotics</button>
             </div>
           </div>
 
@@ -149,15 +154,46 @@ export default function MedicinesPage() {
           ) : (
             <div className="medicine-grid">
               {results.map(m => (
-                <article key={m.id} className="medicine-card">
-                  <div className={`medicine-art ${m.color || "blue"}`}>
-                    <Pill size={34}/>
-                    {m.rx && <span>Rx</span>}
+                <article key={m.id} className="medicine-card" style={{ overflow: "hidden", display: "flex", alignItems: "center", gap: "14px" }}>
+                  {/* Medicine Packaging / Wrapper Photo */}
+                  <div
+                    className={`medicine-art ${m.color || "blue"}`}
+                    style={{
+                      width: "72px",
+                      height: "72px",
+                      borderRadius: "10px",
+                      position: "relative",
+                      overflow: "hidden",
+                      flexShrink: 0,
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                    }}
+                  >
+                    {m.image_url ? (
+                      <img
+                        src={m.image_url}
+                        alt={`${m.name} packaging`}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      <Pill size={32} />
+                    )}
+                    {m.rx && (
+                      <span style={{ position: "absolute", bottom: "3px", right: "3px", background: "#cf1322", color: "#fff", fontSize: "8px", fontWeight: "bold", padding: "1px 4px", borderRadius: "3px" }}>
+                        Rx
+                      </span>
+                    )}
                   </div>
-                  <div className="medicine-copy">
-                    <p>{m.type}</p>
-                    <h3>{m.name}</h3>
-                    <small>{m.brand}</small>
+
+                  <div className="medicine-copy" style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <p style={{ margin: 0, fontSize: "10px", color: "#7a9087" }}>{m.packaging_type || m.type}</p>
+                    </div>
+                    <h3 style={{ margin: "3px 0 2px", fontSize: "14px", fontWeight: "bold" }}>{m.name}</h3>
+                    <small style={{ color: "#5d736a", display: "block", marginBottom: "6px" }}>{m.brand}</small>
                     <div>
                       <b>₹{m.price}</b>
                       {m.rx && <em><ShieldCheck size={12}/> Prescription needed</em>}
@@ -191,16 +227,35 @@ export default function MedicinesPage() {
             <>
               <div className="cart-items">
                 {cart.map((cItem, index) => {
-                  const m = cItem.medicine || catalogue.find(item => item.id === cItem.id) || {
+                  const m: Partial<Medicine> = cItem.medicine || catalogue.find(item => item.id === cItem.id) || {
                     name: "Medicine Item",
                     price: 50,
                     color: "blue",
+                    image_url: undefined,
                   };
                   return (
-                    <div key={`${cItem.id}-${index}`}>
-                      <span className={`cart-pill ${m.color || "blue"}`}><Pill size={15}/></span>
-                      <p>
-                        <b>{m.name}</b>
+                    <div key={`${cItem.id}-${index}`} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <div
+                        style={{
+                          width: "36px",
+                          height: "36px",
+                          borderRadius: "8px",
+                          overflow: "hidden",
+                          background: "#f0f4f2",
+                          display: "grid",
+                          placeItems: "center",
+                          flexShrink: 0,
+                          border: "1px solid #dbe6e0",
+                        }}
+                      >
+                        {m.image_url ? (
+                          <img src={m.image_url} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : (
+                          <span className={`cart-pill ${m.color || "blue"}`}><Pill size={15}/></span>
+                        )}
+                      </div>
+                      <p style={{ flex: 1, minWidth: 0 }}>
+                        <b style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{m.name}</b>
                         <small>₹{m.price} × {cItem.quantity}</small>
                       </p>
                       <div className="qty-controls" style={{ display: "flex", alignItems: "center", gap: "6px", marginLeft: "auto", marginRight: "10px" }}>

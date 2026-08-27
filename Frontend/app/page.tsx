@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, ChevronDown, Clock3, FileUp, HeartPulse, MapPin, Menu, Mic, Moon, Pill, Search, ShieldCheck, Sparkles, Store, Sun, X } from "lucide-react";
 import { useTheme } from "./context/ThemeContext";
+import { MedicineSearchDropdown } from "../components/ui/MedicineSearchDropdown";
 
 const medicines = ["Paracetamol 650", "Dolo 650", "Cetirizine", "Vitamin D3"];
 
@@ -47,21 +48,15 @@ export default function Home() {
               <button className="active">Search medicine</button>
               <button onClick={() => router.push("/ai-doctor")}>Ask MediAssist <Sparkles size={14}/></button>
             </div>
-            <div className="search-row">
-              <Search size={21}/>
-              <input 
-                value={query} 
-                onChange={e => setQuery(e.target.value)} 
-                onKeyDown={e => e.key === "Enter" && handleSearch()} 
-                placeholder="Search by medicine or brand name"
-              />
-              <button onClick={() => handleSearch()}>Find medicine <ArrowRight size={17}/></button>
+            
+            <MedicineSearchDropdown
+              placeholder="Search by medicine, brand name, or wrapper..."
+              onSearchSubmit={(q) => handleSearch(q)}
+            />
+
+            <div className="suggestions">
+              Popular with packaging: {medicines.map(m => <button key={m} onClick={() => handleSearch(m)}>{m}</button>)}
             </div>
-            {!query && (
-              <div className="suggestions">
-                Popular: {medicines.map(m => <button key={m} onClick={() => handleSearch(m)}>{m}</button>)}
-              </div>
-            )}
           </div>
           <div className="hero-proof"><div><span className="avatars">● ● ●</span><b> 12,000+</b> orders delivered</div><div className="proof-line"></div><div><ShieldCheck size={17}/> Licensed pharmacies only</div></div>
         </div>

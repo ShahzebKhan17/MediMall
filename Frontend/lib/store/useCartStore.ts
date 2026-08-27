@@ -9,6 +9,8 @@ export interface Medicine {
   type: string;
   rx: boolean;
   color: string;
+  image_url?: string;
+  packaging_type?: string;
   stock?: number;
 }
 

@@ -70,6 +70,8 @@ class MedicineResponse(BaseModel):
     type: str
     rx: bool
     color: str
+    image_url: Optional[str] = None
+    packaging_type: Optional[str] = None
     stock: int
     expiry_date: Optional[str] = None
     manufacturing_date: Optional[str] = None
@@ -86,10 +88,11 @@ class MedicineCreate(BaseModel):
     type: str
     rx: bool = False
     color: str = "blue"
+    image_url: Optional[str] = None
+    packaging_type: Optional[str] = None
     stock: int = 100
     expiry_date: Optional[str] = None
     manufacturing_date: Optional[str] = None
-
 
 
 class MedicineUpdate(BaseModel):
@@ -99,6 +102,8 @@ class MedicineUpdate(BaseModel):
     type: Optional[str] = None
     rx: Optional[bool] = None
     color: Optional[str] = None
+    image_url: Optional[str] = None
+    packaging_type: Optional[str] = None
     stock: Optional[int] = None
     expiry_date: Optional[str] = None
     manufacturing_date: Optional[str] = None

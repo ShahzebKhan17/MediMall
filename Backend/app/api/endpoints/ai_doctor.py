@@ -11,10 +11,15 @@ class SymptomRequest(BaseModel):
 
 
 class RecommendedMedicine(BaseModel):
+    id: Optional[int] = None
     name: str
+    brand: Optional[str] = None
     type: str
     purpose: str
     requires_rx: bool
+    price: Optional[int] = None
+    image_url: Optional[str] = None
+    packaging_type: Optional[str] = None
 
 
 class SymptomAnalysisResponse(BaseModel):
@@ -58,10 +63,15 @@ def analyze_symptoms(payload: SymptomRequest) -> SymptomAnalysisResponse:
         overview_parts.append("Mild febrile / pain symptoms")
         recommendations.append(
             RecommendedMedicine(
-                name="Paracetamol 650mg (Dolo 650)",
+                id=1,
+                name="Paracetamol 650mg",
+                brand="Dolo 650 · Strip of 15 tablets",
                 type="Pain relief & Antipyretic",
                 purpose="Relief from fever, headaches, and mild body aches",
-                requires_rx=False
+                requires_rx=False,
+                price=34,
+                image_url="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&auto=format&fit=crop&q=80",
+                packaging_type="Blister Strip of 15 Tablets (Orange/White)"
             )
         )
         lifestyle.append("Stay well hydrated with warm water and electrolytes.")
@@ -71,10 +81,15 @@ def analyze_symptoms(payload: SymptomRequest) -> SymptomAnalysisResponse:
         overview_parts.append("Upper respiratory / allergic rhinitis symptoms")
         recommendations.append(
             RecommendedMedicine(
-                name="Cetirizine 10mg (Cetzine)",
+                id=2,
+                name="Cetirizine 10mg",
+                brand="Cetzine · Strip of 10 tablets",
                 type="Allergy care / Antihistamine",
                 purpose="Relieves sneezing, runny nose, and allergic reactions",
-                requires_rx=False
+                requires_rx=False,
+                price=28,
+                image_url="https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=300&auto=format&fit=crop&q=80",
+                packaging_type="Strip of 10 Tablets (Blue Foil Strip)"
             )
         )
         lifestyle.append("Steam inhalation twice daily can help clear nasal congestion.")
@@ -84,10 +99,15 @@ def analyze_symptoms(payload: SymptomRequest) -> SymptomAnalysisResponse:
         overview_parts.append("General fatigue & nutritional support indication")
         recommendations.append(
             RecommendedMedicine(
-                name="Vitamin D3 60K (Uprise-D3)",
+                id=3,
+                name="Vitamin D3 60K",
+                brand="Uprise-D3 · Pack of 4 capsules",
                 type="Vitamins & Nutrition",
                 purpose="Supports bone health, immunity, and overall energy levels",
-                requires_rx=False
+                requires_rx=False,
+                price=116,
+                image_url="https://images.unsplash.com/photo-1550572017-edd951aa8f72?w=300&auto=format&fit=crop&q=80",
+                packaging_type="Box of 4 Softgel Capsules (Gold Blister)"
             )
         )
         lifestyle.append("Maintain a balanced diet rich in leafy greens, proteins, and citrus fruits.")
@@ -96,24 +116,51 @@ def analyze_symptoms(payload: SymptomRequest) -> SymptomAnalysisResponse:
         overview_parts.append("Potential bacterial infection requiring clinical diagnosis")
         recommendations.append(
             RecommendedMedicine(
-                name="Amoxicillin 500mg (Mox 500)",
+                id=4,
+                name="Amoxicillin 500mg",
+                brand="Mox 500 · Strip of 10 capsules",
                 type="Antibiotic (Schedule H)",
                 purpose="Prescription antibiotic for bacterial infections",
-                requires_rx=True
+                requires_rx=True,
+                price=133,
+                image_url="https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=300&auto=format&fit=crop&q=80",
+                packaging_type="Strip of 10 Capsules (Green/Red Blister)"
             )
         )
         requires_rx_review = True
         urgency = "Moderate"
         lifestyle.append("Antibiotics must only be taken after pharmacist validation and doctor's prescription.")
 
+    if any(k in text for k in ["acidity", "gas", "reflux", "heartburn", "stomach"]):
+        overview_parts.append("Gastric acidity / acid reflux symptoms")
+        recommendations.append(
+            RecommendedMedicine(
+                id=5,
+                name="Pantoprazole 40mg",
+                brand="Pan-40 · Strip of 15 tablets",
+                type="Antacid & Gastric",
+                purpose="Reduces stomach acid, heartburn, and gastroesophageal reflux",
+                requires_rx=False,
+                price=89,
+                image_url="https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=300&auto=format&fit=crop&q=80",
+                packaging_type="Strip of 15 Tablets (Silver/Yellow Foil)"
+            )
+        )
+        lifestyle.append("Avoid heavy, oily meals and eat smaller, frequent portions.")
+
     if not recommendations:
         overview_parts.append("General non-specific wellness symptoms")
         recommendations.append(
             RecommendedMedicine(
-                name="Consult Pharmacist",
-                type="Pharmacist Verification",
-                purpose="Personalized review of your symptoms by a nearby licensed chemist",
-                requires_rx=False
+                id=1,
+                name="Paracetamol 650mg",
+                brand="Dolo 650 · Strip of 15 tablets",
+                type="General relief",
+                purpose="General symptomatic relief and pharmacist consultation",
+                requires_rx=False,
+                price=34,
+                image_url="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&auto=format&fit=crop&q=80",
+                packaging_type="Blister Strip of 15 Tablets (Orange/White)"
             )
         )
         lifestyle.append("Keep a log of when symptoms started and drink plenty of fluids.")

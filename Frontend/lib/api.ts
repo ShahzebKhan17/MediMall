@@ -129,6 +129,8 @@ export const api = {
           type: string;
           rx: boolean;
           color: string;
+          image_url?: string;
+          packaging_type?: string;
           stock: number;
         }>
       >(`/medicines/${queryString}`);
@@ -140,6 +142,8 @@ export const api = {
       type: string;
       rx?: boolean;
       color?: string;
+      image_url?: string;
+      packaging_type?: string;
       stock?: number;
     }) => {
       return apiFetch("/medicines/", {
@@ -156,6 +160,8 @@ export const api = {
         type?: string;
         rx?: boolean;
         color?: string;
+        image_url?: string;
+        packaging_type?: string;
         stock?: number;
       }
     ) => {
@@ -290,10 +296,15 @@ export const api = {
         condition_overview: string;
         urgency_level: "Low" | "Moderate" | "High / Urgent";
         recommended_otc: Array<{
+          id?: number;
           name: string;
+          brand?: string;
           type: string;
           purpose: string;
           requires_rx: boolean;
+          price?: number;
+          image_url?: string;
+          packaging_type?: string;
         }>;
         lifestyle_advice: string[];
         disclaimer: string;

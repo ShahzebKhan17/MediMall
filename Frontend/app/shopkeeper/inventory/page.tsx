@@ -12,6 +12,8 @@ interface InventoryItem {
   stock: number;
   type: string;
   rx: boolean;
+  image_url?: string;
+  packaging_type?: string;
   status: "In Stock" | "Low Stock" | "Out of Stock";
 }
 
@@ -28,6 +30,8 @@ export default function ShopkeeperInventoryPage() {
     type: "Pain relief",
     stock: 100,
     rx: false,
+    image_url: "",
+    packaging_type: "",
   });
 
   const loadInventory = async () => {
@@ -49,6 +53,8 @@ export default function ShopkeeperInventoryPage() {
             stock,
             type: m.type,
             rx: m.rx,
+            image_url: m.image_url,
+            packaging_type: m.packaging_type,
             status,
           };
         });
@@ -95,7 +101,7 @@ export default function ShopkeeperInventoryPage() {
     try {
       await api.medicines.create(newMed);
       setIsAddModalOpen(false);
-      setNewMed({ name: "", brand: "", price: 50, type: "Pain relief", stock: 100, rx: false });
+      setNewMed({ name: "", brand: "", price: 50, type: "Pain relief", stock: 100, rx: false, image_url: "", packaging_type: "" });
       await loadInventory();
     } catch (e: any) {
       alert("Error adding item: " + (e.message || "Failed"));
@@ -235,6 +241,24 @@ export default function ShopkeeperInventoryPage() {
                   style={{ width: "100%", padding: "8px 10px", borderRadius: "6px", border: "1px solid #ccc" }} 
                 />
               </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "4px", color: "#555" }}>Packaging Type / Description</label>
+                <input 
+                  value={newMed.packaging_type} 
+                  onChange={(e) => setNewMed({ ...newMed, packaging_type: e.target.value })} 
+                  placeholder="e.g. Blister Strip of 15 Tablets, Bottle of 60ml" 
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "6px", border: "1px solid #ccc" }} 
+                />
+              </div>
+              <div>
+                <label style={{ display: "block", marginBottom: "4px", color: "#555" }}>Packaging Photo / Image URL</label>
+                <input 
+                  value={newMed.image_url} 
+                  onChange={(e) => setNewMed({ ...newMed, image_url: e.target.value })} 
+                  placeholder="e.g. https://... or leave empty for default visual" 
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: "6px", border: "1px solid #ccc" }} 
+                />
+              </div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
                 <input 
                   type="checkbox" 
@@ -276,7 +300,7 @@ export default function ShopkeeperInventoryPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid #edf1ee", textAlign: "left", color: "#82918b" }}>
-                  <th style={{ padding: "12px 8px" }}>Medicine Name</th>
+                  <th style={{ padding: "12px 8px" }}>Medicine & Packaging</th>
                   <th style={{ padding: "12px 8px" }}>Category</th>
                   <th style={{ padding: "12px 8px" }}>Price</th>
                   <th style={{ padding: "12px 8px" }}>Stock Level</th>
@@ -288,13 +312,29 @@ export default function ShopkeeperInventoryPage() {
                 {filtered.map((item) => (
                   <tr key={item.id} style={{ borderBottom: "1px solid #edf1ee" }}>
                     <td style={{ padding: "12px 8px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span style={{ backgroundColor: "#f0f8f4", color: "#227f5e", width: "28px", height: "28px", borderRadius: "6px", display: "grid", placeItems: "center" }}>
-                          <Pill size={15} />
-                        </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            borderRadius: "6px",
+                            overflow: "hidden",
+                            background: "#f0f8f4",
+                            border: "1px solid #dce8e1",
+                            display: "grid",
+                            placeItems: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {item.image_url ? (
+                            <img src={item.image_url} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            <Pill size={18} color="#227f5e" />
+                          )}
+                        </div>
                         <div>
                           <b>{item.name}</b>
-                          <small style={{ display: "block", color: "#82918b", fontSize: "10px" }}>{item.brand}</small>
+                          <small style={{ display: "block", color: "#82918b", fontSize: "10px" }}>{item.packaging_type || item.brand}</small>
                         </div>
                       </div>
                     </td>
