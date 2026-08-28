@@ -127,9 +127,10 @@ export default function MedicinesPage() {
           <div className="pharmacy-strip">
             <div className="pharmacy-dot"><Pill size={19}/></div>
             <div>
-              <b>Matched with Care & Cure Pharmacy</b>
-              <p><span></span> Licensed pharmacy · 0.8 km from you</p>
+              <b>Matched with Nearest Verified Pharmacy</b>
+              <p><span></span> Licensed pharmacy partner · Hyperlocal delivery</p>
             </div>
+
             <div className="delivery-time">
               <Clock3 size={17}/>
               <b>8 min</b>

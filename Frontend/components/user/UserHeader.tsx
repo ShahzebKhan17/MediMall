@@ -30,10 +30,11 @@ export default function UserHeader({ onMenuClick }: UserHeaderProps) {
         <button className="profile-mini" onClick={() => location.href = "/user/profile"}>
           <span>{initials}</span>
           <div>
-            <b>{user?.name || "Ananya Sharma"}</b>
-            <small>Member</small>
+            <b>{user?.name || "Member"}</b>
+            <small>{user?.email ? "Signed in" : "Guest"}</small>
           </div>
           <ChevronDown size={15} />
+
         </button>
       </div>
     </header>

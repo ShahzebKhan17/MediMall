@@ -135,8 +135,9 @@ export default function UserDashboard() {
             <div className="order-body">
               <div className="delivery-orb"><PackageCheck size={38} /></div>
               <div>
-                <b>Care & Cure Pharmacy</b>
+                <b>{activeOrder.pharmacyName || "Assigned Local Pharmacy"}</b>
                 <p><MapPin size={14} /> {activeOrder.address.split(",")[0]}</p>
+
                 <div className="progress">
                   <i style={{ width: getProgressPercentage(activeOrder.status) }}></i>
                 </div>

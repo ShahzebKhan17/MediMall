@@ -60,7 +60,7 @@ export default function MediAssistPage() {
   const handleRequestReview = async () => {
     const summaryNote = text ? `Symptom Log: ${text.slice(0, 45)}...` : "Pharmacist consultation requested";
     await placeOrder("COD", user?.address || undefined, summaryNote);
-    alert("Your symptom log and consultation request have been sent to Care & Cure Pharmacy! Track live updates on your dashboard.");
+    alert("Your symptom log and consultation request have been sent to your assigned pharmacy! Track live updates on your dashboard.");
     location.href = "/user/dashboard";
   };
 
@@ -95,13 +95,14 @@ export default function MediAssistPage() {
   const handleConfirmPrescriptionOrder = async () => {
     try {
       await placeOrder("COD", user?.address || undefined, uploadedFileName);
-      alert("Prescription order verified & submitted to Care & Cure Pharmacy!");
+      alert("Prescription order submitted to your assigned pharmacy for verification.");
       location.href = "/user/dashboard";
     } catch (e) {
       alert("Order submitted to your dashboard!");
       location.href = "/user/dashboard";
     }
   };
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -592,10 +593,11 @@ export default function MediAssistPage() {
               <div className="review-number">1</div>
               <div>
                 <b>Verified by Licensed Pharmacist</b>
-                <p>Care & Cure Pharmacy verifies the prescription against the selected blisters before final dispatch.</p>
+                <p>Your assigned licensed pharmacy verifies the prescription against the selected items before final dispatch.</p>
               </div>
               <ShieldCheck size={25}/>
             </div>
+
 
             <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
               <button

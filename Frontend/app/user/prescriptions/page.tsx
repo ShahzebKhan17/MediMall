@@ -102,8 +102,9 @@ export default function PatientPrescriptionsPage() {
                   </span>
                   <div>
                     <b style={{ fontSize: "13px", display: "block" }}>{filename}</b>
-                    <span style={{ fontSize: "10px", color: "#82918b" }}>Verified by Care & Cure Pharmacist</span>
+                    <span style={{ fontSize: "10px", color: "#82918b" }}>Verified by Licensed Pharmacist</span>
                   </div>
+
                   <button
                     style={{
                       marginLeft: "auto",

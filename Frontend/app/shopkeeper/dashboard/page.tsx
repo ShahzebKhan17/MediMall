@@ -2,9 +2,12 @@
 
 import { BarChart3, Check, ChevronDown, Clock3, FileCheck2, Package, ShieldCheck, ShoppingBag } from "lucide-react";
 import { useShopkeeper } from "../ShopkeeperContext";
+import { useAppContext } from "../../context/AppContext";
+
 
 export default function ShopkeeperDashboard() {
   const { queue, advanceOrder, isAudioRinging, silenceAlert } = useShopkeeper();
+  const { user } = useAppContext();
 
   const getButtonDetails = (status: string, priority: string) => {
     if (priority === "Review") {
@@ -40,38 +43,35 @@ export default function ShopkeeperDashboard() {
       {isAudioRinging && (
         <div
           style={{
-            background: "linear-gradient(135deg, #fff3f0, #ffebe6)",
-            border: "1px solid #f8b4a7",
-            borderRadius: "12px",
-            padding: "16px 20px",
-            marginBottom: "24px",
+            background: "#fff1f0",
+            border: "1px solid #ffccc7",
+            borderRadius: "10px",
+            padding: "14px 18px",
+            marginBottom: "20px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            boxShadow: "0 8px 24px rgba(223, 56, 38, 0.15)",
-            animation: "urgentPulse 1.5s infinite",
+            animation: "pulse 1.5s infinite",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-            <span style={{ fontSize: "24px", animation: "bellVibrate 0.8s infinite" }}>🚨</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "20px" }}>🔔</span>
             <div>
-              <b style={{ color: "#bd2b1b", fontSize: "14px", display: "block" }}>
-                Incoming Order Alert!
-              </b>
-              <p style={{ margin: "3px 0 0", fontSize: "12px", color: "#6a2f26" }}>
-                Urgent chime is playing. Review or advance the order from the queue below to stop the chime.
-              </p>
+              <b style={{ color: "#cf1322", fontSize: "14px" }}>Urgent: New incoming order requiring confirmation!</b>
+              <small style={{ display: "block", color: "#82918b", fontSize: "11px" }}>
+                An order is waiting in your queue. Please accept and dispatch.
+              </small>
             </div>
           </div>
           <button
             onClick={silenceAlert}
             style={{
-              background: "#ffffff",
-              border: "1px solid #e25848",
-              color: "#bd2b1b",
-              borderRadius: "8px",
-              padding: "8px 14px",
-              fontSize: "11px",
+              background: "#cf1322",
+              color: "#fff",
+              border: 0,
+              padding: "7px 14px",
+              borderRadius: "6px",
+              fontSize: "12px",
               fontWeight: 700,
               cursor: "pointer",
               boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
@@ -84,9 +84,9 @@ export default function ShopkeeperDashboard() {
 
       <div className="shop-welcome">
         <div>
-          <p>TODAY</p>
-          <h1>Good morning, Dr. Ravi</h1>
-          <h2>Here&apos;s what&apos;s happening at Care & Cure Pharmacy.</h2>
+          <p>PHARMACY WORKSPACE</p>
+          <h1>Welcome, {user?.name || "Pharmacist"}</h1>
+          <h2>Here&apos;s your live order dispatch queue and inventory metrics.</h2>
         </div>
         <div className="online"><i></i> Taking orders <ChevronDown size={14}/></div>
       </div>

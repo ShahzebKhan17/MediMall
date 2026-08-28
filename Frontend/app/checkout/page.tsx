@@ -90,8 +90,9 @@ export default function CheckoutPage() {
           amount: rzpOrder.amount,
           currency: rzpOrder.currency || "INR",
           name: "MediMall Hyperlocal",
-          description: `Order for ${cart.length} item(s) from Care & Cure Pharmacy`,
+          description: `Order for ${cart.length} item(s) from Verified Local Pharmacy`,
           order_id: rzpOrder.razorpay_order_id,
+
           prefill: {
             name: user?.name || "Customer",
             email: user?.email || "customer@medimall.in",
@@ -181,8 +182,9 @@ export default function CheckoutPage() {
           <span><CheckCircle2 size={44} /></span>
           <p>ORDER CONFIRMED</p>
           <h1>Your medicine is on its way.</h1>
-          <h2>Care & Cure Pharmacy is reviewing your order now. We&apos;ll notify you as soon as it is dispatched.</h2>
+          <h2>Your assigned pharmacy is reviewing your order now. We&apos;ll notify you as soon as it is dispatched.</h2>
           <div>
+
             <Clock3 size={21} />
             <b>Estimated delivery: 8 minutes</b>
           </div>
@@ -310,8 +312,9 @@ export default function CheckoutPage() {
               <Clock3 size={18} />
               <p>
                 <b>Delivery in 8 minutes</b>
-                <small>From Care & Cure Pharmacy · 0.8 km away</small>
+                <small>From nearest verified pharmacy · 0.8 km away</small>
               </p>
+
             </div>
 
             {hasRx && (

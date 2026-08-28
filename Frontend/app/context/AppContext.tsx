@@ -31,6 +31,7 @@ export interface Order {
   id: string;
   initials: string;
   name: string;
+  pharmacyName?: string;
   itemsSummary: string;
   time: string;
   type: string;
@@ -42,6 +43,7 @@ export interface Order {
   paymentMethod: string;
   prescription?: string;
 }
+
 
 export interface UserProfile {
   name: string;
@@ -149,6 +151,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         id: bo.id,
         initials,
         name: orderCustomerName,
+        pharmacyName: bo.pharmacy_name || "Verified Local Pharmacy",
         itemsSummary: summary || `Prescription Order (${bo.prescription_url || "Attached"})`,
         time: bo.created_at
           ? new Date(bo.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
@@ -162,6 +165,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         paymentMethod: bo.payment_method,
         prescription: bo.prescription_url,
       };
+
     });
   }, [ordersQuery.data, user, role]);
 

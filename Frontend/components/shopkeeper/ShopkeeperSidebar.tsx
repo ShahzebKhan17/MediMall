@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { LayoutDashboard, ShoppingBag, FileCheck2, Package, BarChart3, Settings, UserRound, Pill, ChevronDown } from "lucide-react";
 import { useShopkeeper } from "../../app/shopkeeper/ShopkeeperContext";
+import { useAppContext } from "../../app/context/AppContext";
 
 interface ShopkeeperSidebarProps {
   mobileOpen: boolean;
@@ -13,6 +14,7 @@ export default function ShopkeeperSidebar({ mobileOpen, onClose }: ShopkeeperSid
   const router = useRouter();
   const pathname = usePathname();
   const { queue } = useShopkeeper();
+  const { user } = useAppContext();
   const ordersCount = queue.length;
 
 
@@ -32,11 +34,12 @@ export default function ShopkeeperSidebar({ mobileOpen, onClose }: ShopkeeperSid
       <div className="store-profile">
         <span className="store-badge"><Pill size={19} /></span>
         <div>
-          <b>Care & Cure</b>
+          <b>{user?.name || "Pharmacy Portal"}</b>
           <small><i></i> Open for orders</small>
         </div>
         <ChevronDown size={14} />
       </div>
+
       <nav>
         <span>WORKSPACE</span>
         {navItems.map((item) => {
