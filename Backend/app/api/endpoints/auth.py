@@ -4,11 +4,27 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core import security
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.models import User
 from app import schemas
 
 router = APIRouter()
+settings = get_settings()
+
+
+def set_auth_cookie(response: Response, token: str):
+    """Sets environment-appropriate auth cookies (secure & samesite=none for production cross-origin)."""
+    is_prod = settings.is_production
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        max_age=3600 * 24 * 7,  # 7 days
+        samesite="none" if is_prod else "lax",
+        secure=is_prod,
+        path="/",
+    )
 
 
 @router.post("/register", response_model=schemas.UserProfile, status_code=status.HTTP_201_CREATED)
@@ -47,20 +63,11 @@ def register(user_in: schemas.UserCreate, response: Response, db: Session = Depe
     db.commit()
     db.refresh(new_user)
 
-    # Set HttpOnly cookie for newly registered user
+    # Set authentication cookie for newly registered user
     access_token = security.create_access_token(subject=new_user.id)
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        max_age=3600,
-        samesite="lax",
-        secure=False,
-        path="/"
-    )
+    set_auth_cookie(response, access_token)
 
     return new_user
-
 
 
 @router.post("/token", response_model=schemas.Token)
@@ -74,15 +81,7 @@ def login_oauth2(form_data: OAuth2PasswordRequestForm = Depends(), response: Res
         )
     access_token = security.create_access_token(subject=user.id)
     if response:
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            httponly=True,
-            max_age=3600,
-            samesite="lax",
-            secure=False,
-            path="/"
-        )
+        set_auth_cookie(response, access_token)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -102,23 +101,21 @@ def login_json(payload: LoginJSONPayload, response: Response, db: Session = Depe
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token = security.create_access_token(subject=user.id)
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        max_age=3600,
-        samesite="lax",
-        secure=False,
-        path="/"
-    )
+    set_auth_cookie(response, access_token)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.post("/logout")
 def logout(response: Response):
-    response.delete_cookie(key="access_token", httponly=True, samesite="lax", path="/")
+    is_prod = settings.is_production
+    response.delete_cookie(
+        key="access_token",
+        httponly=True,
+        samesite="none" if is_prod else "lax",
+        secure=is_prod,
+        path="/",
+    )
     return {"status": "ok", "message": "Logged out successfully"}
-
 
 
 @router.get("/me", response_model=schemas.UserProfile)
@@ -149,8 +146,11 @@ def update_current_user(
 
 
 @router.get("/users/summary")
-def get_users_summary(db: Session = Depends(get_db)):
-    """Developer endpoint: Returns registration stats and user counts."""
+def get_users_summary(
+    admin_user: User = Depends(security.require_pharmacy_user),
+    db: Session = Depends(get_db),
+):
+    """Secured admin endpoint: Returns registration stats and user counts."""
     total = db.query(User).count()
     patients = db.query(User).filter(User.role == "patient").count()
     pharmacies = db.query(User).filter(User.role == "pharmacy").count()
@@ -162,7 +162,11 @@ def get_users_summary(db: Session = Depends(get_db)):
 
 
 @router.get("/users/all", response_model=list[schemas.UserProfile])
-def get_all_users(db: Session = Depends(get_db)):
-    """Developer endpoint: List all registered users."""
+def get_all_users(
+    admin_user: User = Depends(security.require_pharmacy_user),
+    db: Session = Depends(get_db),
+):
+    """Secured admin endpoint: List registered users."""
     return db.query(User).order_by(User.created_at.desc()).all()
+
 

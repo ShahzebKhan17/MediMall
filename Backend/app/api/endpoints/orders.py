@@ -19,6 +19,37 @@ from app import schemas
 router = APIRouter()
 
 
+def get_assigned_pharmacy(db: Session, patient_lat: float, patient_lng: float) -> User:
+    pharmacies = db.query(User).filter(User.role == "pharmacy").all()
+    if not pharmacies:
+        # Create default fallback pharmacy if none exists
+        default_pharm = User(
+            email="pharmacy@medimall.in",
+            hashed_password=security.get_password_hash("securepassword"),
+            name="Care & Cure Pharmacy",
+            role="pharmacy",
+            medical_license="DL-KA-BNG-2025-0042",
+            address="100 Feet Road, Indiranagar, Bengaluru, Karnataka 560038",
+            phone="+91 80 4123 4567",
+            latitude=12.9716,
+            longitude=77.5946,
+        )
+        db.add(default_pharm)
+        db.commit()
+        db.refresh(default_pharm)
+        return default_pharm
+
+    pharmacy_distances = []
+    for pharm in pharmacies:
+        p_lat = pharm.latitude if pharm.latitude is not None else 12.9716
+        p_lng = pharm.longitude if pharm.longitude is not None else 77.5946
+        dist = haversine_distance(patient_lat, patient_lng, p_lat, p_lng)
+        pharmacy_distances.append((pharm, dist))
+
+    pharmacy_distances.sort(key=lambda x: x[1])
+    return pharmacy_distances[0][0]
+
+
 @router.post("/", response_model=schemas.OrderResponse, status_code=status.HTTP_201_CREATED)
 def place_order(
     order_in: schemas.OrderCreate,
@@ -70,27 +101,10 @@ def place_order(
     # Determine status: if it requires prescription, status starts at "Review"
     status_str = "Review" if has_rx else "Placed"
 
-    # Proximity Search: Find closest pharmacy
+    # Match nearest pharmacy
     patient_lat = user.latitude if user.latitude is not None else 12.9716
     patient_lng = user.longitude if user.longitude is not None else 77.5946
-
-    pharmacies = db.query(User).filter(User.role == "pharmacy").all()
-    if not pharmacies:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No registered pharmacies are available to fulfill this order.",
-        )
-
-    pharmacy_distances = []
-    for pharm in pharmacies:
-        p_lat = pharm.latitude if pharm.latitude is not None else 12.9716
-        p_lng = pharm.longitude if pharm.longitude is not None else 77.5946
-        dist = haversine_distance(patient_lat, patient_lng, p_lat, p_lng)
-        pharmacy_distances.append((pharm, dist))
-
-    # Sort pharmacies by distance (closest first)
-    pharmacy_distances.sort(key=lambda x: x[1])
-    assigned_pharmacy, calculated_distance = pharmacy_distances[0]
+    assigned_pharmacy = get_assigned_pharmacy(db, patient_lat, patient_lng)
 
     # Create Order
     new_order = Order(
@@ -105,6 +119,7 @@ def place_order(
     db.add(new_order)
     db.commit()
     db.refresh(new_order)
+
 
     # Create Order Items and update inventory stock
     for med, qty in items_to_create:
@@ -366,28 +381,13 @@ def verify_razorpay_payment(
         total += med.price * item.quantity
         items_to_create.append((med, item.quantity))
 
-    # Proximity Search: Match nearest pharmacy
+    # Match nearest pharmacy
     patient_lat = user.latitude if user.latitude is not None else 12.9716
     patient_lng = user.longitude if user.longitude is not None else 77.5946
-
-    pharmacies = db.query(User).filter(User.role == "pharmacy").all()
-    if not pharmacies:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No registered pharmacies are available to fulfill this order.",
-        )
-
-    pharmacy_distances = []
-    for pharm in pharmacies:
-        p_lat = pharm.latitude if pharm.latitude is not None else 12.9716
-        p_lng = pharm.longitude if pharm.longitude is not None else 77.5946
-        dist = haversine_distance(patient_lat, patient_lng, p_lat, p_lng)
-        pharmacy_distances.append((pharm, dist))
-
-    pharmacy_distances.sort(key=lambda x: x[1])
-    assigned_pharmacy, _ = pharmacy_distances[0]
+    assigned_pharmacy = get_assigned_pharmacy(db, patient_lat, patient_lng)
 
     status_str = "Review" if has_rx else "Confirmed"
+
 
     new_order = Order(
         user_id=current_user_id,

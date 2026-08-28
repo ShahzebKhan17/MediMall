@@ -52,6 +52,7 @@ export interface UserProfile {
   address: string;
   allergies: string;
   bloodGroup: string;
+  role?: "patient" | "pharmacy";
 }
 
 interface AppContextProps {
@@ -113,6 +114,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       address: me.address || "",
       allergies: me.allergies || "No known allergies",
       bloodGroup: me.blood_group || "O+",
+      role: (me.role as "patient" | "pharmacy") || "patient",
     };
   }, [userQuery.data]);
 
@@ -134,10 +136,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       }));
       const summary = itemsList.map((it) => `${it.name}${it.quantity > 1 ? ` x${it.quantity}` : ""}`).join(" · ");
       const hasRx = !!bo.prescription_url;
+      const orderCustomerName = bo.patient_name || (role === "pharmacy" ? "Customer" : (user?.name || "Customer"));
+      const initials = orderCustomerName
+        .split(" ")
+        .filter(Boolean)
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase() || "CU";
+
       return {
         id: bo.id,
-        initials: user ? user.name.split(" ").map((n) => n[0]).join("") : "US",
-        name: user?.name || "Customer",
+        initials,
+        name: orderCustomerName,
         itemsSummary: summary || `Prescription Order (${bo.prescription_url || "Attached"})`,
         time: bo.created_at
           ? new Date(bo.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
@@ -152,7 +163,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         prescription: bo.prescription_url,
       };
     });
-  }, [ordersQuery.data, user]);
+  }, [ordersQuery.data, user, role]);
+
+
 
   // Map prescriptions
   const prescriptions: string[] = useMemo(() => {

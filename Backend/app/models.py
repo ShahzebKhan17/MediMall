@@ -71,6 +71,19 @@ class Order(Base):
     pharmacy = relationship("User", foreign_keys=[pharmacy_id])
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
+    @property
+    def patient_name(self) -> str:
+        return self.user.name if self.user else "Customer"
+
+    @property
+    def patient_phone(self) -> str:
+        return self.user.phone if self.user and self.user.phone else ""
+
+    @property
+    def pharmacy_name(self) -> str:
+        return self.pharmacy.name if self.pharmacy else "Care & Cure Pharmacy"
+
+
 
 class OrderItem(Base):
     __tablename__ = "order_items"

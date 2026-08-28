@@ -1,4 +1,23 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1").replace(/\/$/, "");
+
+const TOKEN_STORAGE_KEY = "medimall_access_token";
+
+export function getStoredAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_STORAGE_KEY);
+}
+
+export function setStoredAuthToken(token: string): void {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+  }
+}
+
+export function clearStoredAuthToken(): void {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+  }
+}
 
 export async function apiFetch<T>(
   endpoint: string,
@@ -12,14 +31,25 @@ export async function apiFetch<T>(
     headers["Content-Type"] = "application/json";
   }
 
-  const url = `${API_BASE_URL}${endpoint}`;
+  // Inject Authorization Bearer token if available in storage
+  const storedToken = getStoredAuthToken();
+  if (storedToken && !headers["Authorization"] && !headers["authorization"]) {
+    headers["Authorization"] = `Bearer ${storedToken}`;
+  }
+
+  const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
   const response = await fetch(url, {
     ...options,
-    credentials: "include", // Automatically send & receive HttpOnly cookies
+    credentials: "include", // Send & receive HttpOnly cookies where supported
     headers,
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      // Clear stale token on unauthorized
+      clearStoredAuthToken();
+    }
+
     let errorMessage = `API error (${response.status})`;
     try {
       const errJson = await response.json();
@@ -27,7 +57,7 @@ export async function apiFetch<T>(
         errorMessage = typeof errJson.detail === "string" ? errJson.detail : JSON.stringify(errJson.detail);
       }
     } catch {
-      // ignore
+      // ignore JSON parse error on non-json responses
     }
     throw new Error(errorMessage);
   }
@@ -38,15 +68,20 @@ export async function apiFetch<T>(
 export const api = {
   auth: {
     login: async (payload: { email: string; password?: string }) => {
-      return apiFetch<{ access_token: string; token_type: string }>("/auth/login", {
+      const res = await apiFetch<{ access_token: string; token_type: string }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({
           email: payload.email,
           password: payload.password || "securepassword",
         }),
       });
+      if (res?.access_token) {
+        setStoredAuthToken(res.access_token);
+      }
+      return res;
     },
     logout: async () => {
+      clearStoredAuthToken();
       return apiFetch<{ status: string; message: string }>("/auth/logout", {
         method: "POST",
       });
@@ -81,7 +116,7 @@ export const api = {
           blood_group: userData.blood_group || "O+",
         }),
       });
-      // Automatically login to retrieve token
+      // Automatically login to retrieve & persist access token
       try {
         await api.auth.login({
           email: userData.email,
@@ -113,6 +148,7 @@ export const api = {
       });
     },
   },
+
 
   medicines: {
     getAll: async (q?: string, type?: string) => {
@@ -179,6 +215,9 @@ export const api = {
           id: string;
           user_id: string;
           pharmacy_id?: string;
+          patient_name?: string;
+          patient_phone?: string;
+          pharmacy_name?: string;
           status: string;
           total: number;
           address: string;
@@ -196,6 +235,7 @@ export const api = {
         }>
       >("/orders/");
     },
+
     getActive: async () => {
       return apiFetch("/orders/active");
     },

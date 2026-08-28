@@ -138,6 +138,9 @@ class OrderResponse(BaseModel):
     id: str
     user_id: str
     pharmacy_id: Optional[str] = None
+    patient_name: Optional[str] = "Customer"
+    patient_phone: Optional[str] = None
+    pharmacy_name: Optional[str] = "Care & Cure Pharmacy"
     status: str
     total: int
     address: str
@@ -148,6 +151,7 @@ class OrderResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 
 class OrderStatusUpdate(BaseModel):
