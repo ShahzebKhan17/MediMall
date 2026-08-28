@@ -3,6 +3,12 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+try:
+    import razorpay
+except ImportError:
+    razorpay = None
+
+
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 6371.0  # Earth radius in km
     dlat = math.radians(lat2 - lat1)
@@ -289,24 +295,24 @@ def create_razorpay_order(
     key_secret = settings.razorpay_key_secret or "placeholder_secret"
 
     rzp_order_id = f"order_test_{current_user_id[:8]}_{int(total)}"
-    try:
-        import razorpay
-        client = razorpay.Client(auth=(key_id, key_secret))
-        razorpay_data = {
-            "amount": amount_in_paise,
-            "currency": "INR",
-            "receipt": f"rcpt_{current_user_id[:8]}",
-            "notes": {
-                "user_id": current_user_id,
-                "user_name": user.name,
-            },
-        }
-        rzp_order = client.order.create(data=razorpay_data)
-        if rzp_order and "id" in rzp_order:
-            rzp_order_id = rzp_order["id"]
-    except Exception as e:
-        # Fallback to simulated order ID for local test environments
-        print(f"Razorpay Client creation warning: {e}. Using simulated order ID {rzp_order_id}")
+    if razorpay:
+        try:
+            client = razorpay.Client(auth=(key_id, key_secret))
+            razorpay_data = {
+                "amount": amount_in_paise,
+                "currency": "INR",
+                "receipt": f"rcpt_{current_user_id[:8]}",
+                "notes": {
+                    "user_id": current_user_id,
+                    "user_name": user.name,
+                },
+            }
+            rzp_order = client.order.create(data=razorpay_data)
+            if rzp_order and "id" in rzp_order:
+                rzp_order_id = rzp_order["id"]
+        except Exception as e:
+            # Fallback to simulated order ID for local test environments
+            print(f"Razorpay Client creation warning: {e}. Using simulated order ID {rzp_order_id}")
 
     return schemas.RazorpayOrderResponse(
         razorpay_order_id=rzp_order_id,
@@ -345,9 +351,8 @@ def verify_razorpay_payment(
     # Cryptographic signature check (when using real keys)
     key_id = settings.razorpay_key_id
     key_secret = settings.razorpay_key_secret
-    if key_id and key_secret and not key_id.startswith("rzp_test_placeholder"):
+    if razorpay and key_id and key_secret and not key_id.startswith("rzp_test_placeholder"):
         try:
-            import razorpay
             client = razorpay.Client(auth=(key_id, key_secret))
             client.utility.verify_payment_signature({
                 "razorpay_order_id": verify_in.razorpay_order_id,
@@ -357,6 +362,7 @@ def verify_razorpay_payment(
         except Exception as e:
             # If verification fails with real keys, raise 400
             print(f"Razorpay Signature Verification Error: {e}")
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Payment signature verification failed. Transaction cannot be confirmed.",
