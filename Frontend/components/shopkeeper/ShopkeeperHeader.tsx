@@ -1,17 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, BellOff, Menu, Search, Volume2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bell, BellOff, Menu, Search, Volume2, LogOut, Settings, UserRound, ShieldCheck } from "lucide-react";
 import ThemeToggle from "../ui/ThemeToggle";
 import { useShopkeeper } from "../../app/shopkeeper/ShopkeeperContext";
+import { useAppContext } from "../../app/context/AppContext";
 
 interface ShopkeeperHeaderProps {
   onMenuClick: () => void;
 }
 
 export default function ShopkeeperHeader({ onMenuClick }: ShopkeeperHeaderProps) {
+  const router = useRouter();
   const { soundEnabled, isAudioRinging, toggleSound, silenceAlert, testSound } = useShopkeeper();
+  const { user, logout } = useAppContext();
   const [showSoundMenu, setShowSoundMenu] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "PH";
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      router.push("/login");
+    }
+  };
 
   return (
     <header className="shop-header">
@@ -34,6 +56,7 @@ export default function ShopkeeperHeader({ onMenuClick }: ShopkeeperHeaderProps)
                 silenceAlert();
               } else {
                 setShowSoundMenu(!showSoundMenu);
+                setShowProfileMenu(false);
               }
             }}
             title={
@@ -143,8 +166,150 @@ export default function ShopkeeperHeader({ onMenuClick }: ShopkeeperHeaderProps)
           )}
         </div>
 
-        <span className="owner">DR</span>
+        {/* Pharmacist Profile Menu & Logout */}
+        <div style={{ position: "relative" }}>
+          <button
+            className="owner"
+            onClick={() => {
+              setShowProfileMenu(!showProfileMenu);
+              setShowSoundMenu(false);
+            }}
+            style={{
+              cursor: "pointer",
+              border: 0,
+              display: "grid",
+              placeItems: "center",
+              userSelect: "none",
+            }}
+            title="Pharmacist Account Menu"
+          >
+            {initials}
+          </button>
+
+          {showProfileMenu && (
+            <div
+              style={{
+                position: "absolute",
+                top: "42px",
+                right: "0",
+                background: "#ffffff",
+                border: "1px solid #dfe8e3",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.14)",
+                borderRadius: "12px",
+                padding: "14px",
+                width: "240px",
+                zIndex: 60,
+                color: "#16342e",
+              }}
+            >
+              <div style={{ paddingBottom: "10px", borderBottom: "1px solid #edf1ee", marginBottom: "8px" }}>
+                <b style={{ fontSize: "14px", display: "block", color: "#16342e" }}>
+                  {user?.name || "Pharmacist"}
+                </b>
+                <span style={{ fontSize: "11px", color: "#7a9187", display: "block" }}>
+                  {user?.email || "pharmacist@medimall.in"}
+                </span>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    background: "#e2f4eb",
+                    color: "#227f5e",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    marginTop: "6px",
+                  }}
+                >
+                  <ShieldCheck size={12} /> Licensed Pharmacist
+                </span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    router.push("/shopkeeper/settings");
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    width: "100%",
+                    padding: "8px 10px",
+                    border: 0,
+                    borderRadius: "6px",
+                    background: "transparent",
+                    color: "#16342e",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f4f8f6")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <Settings size={15} color="#227f5e" /> Shop Settings
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    router.push("/shopkeeper/team");
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    width: "100%",
+                    padding: "8px 10px",
+                    border: 0,
+                    borderRadius: "6px",
+                    background: "transparent",
+                    color: "#16342e",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f4f8f6")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <UserRound size={15} color="#227f5e" /> Team Members
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    width: "100%",
+                    padding: "8px 10px",
+                    border: 0,
+                    borderRadius: "6px",
+                    background: "transparent",
+                    color: "#cf1322",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    marginTop: "4px",
+                    borderTop: "1px solid #f2f5f3",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#fff1f0")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <LogOut size={15} /> Sign Out
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
 }
+

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { LayoutDashboard, ShoppingBag, FileCheck2, Package, BarChart3, Settings, UserRound, Pill, ChevronDown } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, FileCheck2, Package, BarChart3, Settings, UserRound, Pill, ChevronDown, LogOut } from "lucide-react";
 import { useShopkeeper } from "../../app/shopkeeper/ShopkeeperContext";
 import { useAppContext } from "../../app/context/AppContext";
 
@@ -14,9 +14,16 @@ export default function ShopkeeperSidebar({ mobileOpen, onClose }: ShopkeeperSid
   const router = useRouter();
   const pathname = usePathname();
   const { queue } = useShopkeeper();
-  const { user } = useAppContext();
+  const { user, logout } = useAppContext();
   const ordersCount = queue.length;
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      router.push("/login");
+    }
+  };
 
   const navItems = [
     { icon: LayoutDashboard, label: "Overview", href: "/shopkeeper/dashboard" },
@@ -31,7 +38,7 @@ export default function ShopkeeperSidebar({ mobileOpen, onClose }: ShopkeeperSid
       <a className="brand" href="/" onClick={(e) => { e.preventDefault(); router.push("/"); if (onClose) onClose(); }}>
         <span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span>
       </a>
-      <div className="store-profile">
+      <div className="store-profile" onClick={() => router.push("/shopkeeper/settings")} style={{ cursor: "pointer" }}>
         <span className="store-badge"><Pill size={19} /></span>
         <div>
           <b>{user?.name || "Pharmacy Portal"}</b>
@@ -62,9 +69,32 @@ export default function ShopkeeperSidebar({ mobileOpen, onClose }: ShopkeeperSid
       </nav>
       <nav className="side-bottom">
         <span>ACCOUNT</span>
-        <button><Settings size={18} />Shop settings</button>
-        <button><UserRound size={18} />Team members</button>
+        <button
+          className={pathname === "/shopkeeper/settings" ? "active" : ""}
+          onClick={() => {
+            router.push("/shopkeeper/settings");
+            if (onClose) onClose();
+          }}
+        >
+          <Settings size={18} />Shop settings
+        </button>
+        <button
+          className={pathname === "/shopkeeper/team" ? "active" : ""}
+          onClick={() => {
+            router.push("/shopkeeper/team");
+            if (onClose) onClose();
+          }}
+        >
+          <UserRound size={18} />Team members
+        </button>
+        <button
+          onClick={handleLogout}
+          style={{ color: "#e05646" }}
+        >
+          <LogOut size={18} />Logout
+        </button>
       </nav>
     </aside>
   );
 }
+

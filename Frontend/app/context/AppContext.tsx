@@ -55,7 +55,9 @@ export interface UserProfile {
   allergies: string;
   bloodGroup: string;
   role?: "patient" | "pharmacy";
+  medical_license?: string;
 }
+
 
 interface AppContextProps {
   user: UserProfile | null;
