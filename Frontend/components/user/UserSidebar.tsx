@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { Home, ShoppingBag, FileText, HeartPulse, CreditCard, HelpCircle, Settings, LogOut } from "lucide-react";
+import { useAppContext } from "../../app/context/AppContext";
 
 interface UserSidebarProps {
   mobileOpen: boolean;
@@ -19,6 +20,15 @@ const navItems = [
 export default function UserSidebar({ mobileOpen, onClose }: UserSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { logout } = useAppContext();
+
+  const handleSignOut = async () => {
+    try {
+      await logout();
+    } finally {
+      router.push("/login");
+    }
+  };
 
   return (
     <aside className={`sidebar ${mobileOpen ? "show" : ""}`}>
@@ -46,10 +56,32 @@ export default function UserSidebar({ mobileOpen, onClose }: UserSidebarProps) {
       </div>
       <div className="side-section bottom">
         <span>SUPPORT</span>
-        <button><HelpCircle size={18} />Help centre</button>
-        <button><Settings size={18} />Settings</button>
-        <button className="signout" onClick={() => router.push("/")}><LogOut size={18} />Sign out</button>
+        <button
+          className={pathname === "/user/help" ? "side-active" : ""}
+          onClick={() => {
+            router.push("/user/help");
+            if (onClose) onClose();
+          }}
+        >
+          <HelpCircle size={18} />Help centre
+        </button>
+        <button
+          className={pathname === "/user/profile" ? "side-active" : ""}
+          onClick={() => {
+            router.push("/user/profile");
+            if (onClose) onClose();
+          }}
+        >
+          <Settings size={18} />Settings
+        </button>
+        <button
+          className="signout"
+          onClick={handleSignOut}
+        >
+          <LogOut size={18} />Sign out
+        </button>
       </div>
     </aside>
   );
 }
+
