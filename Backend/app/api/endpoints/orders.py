@@ -67,39 +67,41 @@ def place_order(
             detail="A delivery address is required.",
         )
 
-    if not order_in.items:
+    if not order_in.items and not order_in.prescription_name:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="The cart must contain at least one item.",
+            detail="The cart must contain at least one item or an attached prescription.",
         )
 
     total = 0
-    has_rx = False
+    has_rx = bool(order_in.prescription_name)
     items_to_create = []
 
     # Calculate price dynamically and check prescriptions
-    for item in order_in.items:
-        med = db.query(Medicine).filter(Medicine.id == item.medicine_id).first()
-        if not med:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Medicine ID {item.medicine_id} not found.",
-            )
+    if order_in.items:
+        for item in order_in.items:
+            med = db.query(Medicine).filter(Medicine.id == item.medicine_id).first()
+            if not med:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Medicine ID {item.medicine_id} not found.",
+                )
 
-        if med.rx:
-            has_rx = True
+            if med.rx:
+                has_rx = True
 
-        if med.stock < item.quantity:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Insufficient stock for {med.name}. Available: {med.stock}",
-            )
+            if med.stock < item.quantity:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Insufficient stock for {med.name}. Available: {med.stock}",
+                )
 
-        total += med.price * item.quantity
-        items_to_create.append((med, item.quantity))
+            total += med.price * item.quantity
+            items_to_create.append((med, item.quantity))
 
     # Determine status: if it requires prescription, status starts at "Review"
     status_str = "Review" if has_rx else "Placed"
+
 
     # Match nearest pharmacy
     patient_lat = user.latitude if user.latitude is not None else 12.9716

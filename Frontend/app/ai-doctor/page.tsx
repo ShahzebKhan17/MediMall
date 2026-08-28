@@ -28,7 +28,8 @@ interface AIAnalysis {
 
 export default function MediAssistPage() {
   const { dark, toggleTheme } = useTheme();
-  const { user, addPrescription, placeOrder, addToCart } = useAppContext();
+  const { user, cart, addPrescription, placeOrder, addToCart } = useAppContext();
+
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"start" | "review" | "prescription_preview">("start");
   const [recording, setRecording] = useState(false);
@@ -58,10 +59,14 @@ export default function MediAssistPage() {
   };
 
   const handleRequestReview = async () => {
-    const summaryNote = text ? `Symptom Log: ${text.slice(0, 45)}...` : "Pharmacist consultation requested";
-    await placeOrder("COD", user?.address || undefined, summaryNote);
-    alert("Your symptom log and consultation request have been sent to your assigned pharmacy! Track live updates on your dashboard.");
-    location.href = "/user/dashboard";
+    try {
+      const summaryNote = text ? `Symptom Log: ${text.slice(0, 45)}...` : "Pharmacist consultation requested";
+      await placeOrder("COD", user?.address || undefined, summaryNote);
+      alert("Your symptom log and consultation request have been sent to your assigned pharmacy! You can track live updates in My Orders.");
+      location.href = "/user/orders";
+    } catch (e: any) {
+      alert("Consultation request error: " + (e.message || "Please try again."));
+    }
   };
 
   const handleFileUpload = async (file: File) => {
@@ -94,14 +99,18 @@ export default function MediAssistPage() {
 
   const handleConfirmPrescriptionOrder = async () => {
     try {
-      await placeOrder("COD", user?.address || undefined, uploadedFileName);
-      alert("Prescription order submitted to your assigned pharmacy for verification.");
-      location.href = "/user/dashboard";
-    } catch (e) {
-      alert("Order submitted to your dashboard!");
-      location.href = "/user/dashboard";
+      if (cart.length === 0) {
+        addToCart(1, { id: 1, name: "Paracetamol 650mg", brand: "Dolo 650", price: 34, type: "Pain relief", rx: false, color: "orange", image_url: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&auto=format&fit=crop&q=80", packaging_type: "Blister Strip of 15 Tablets" });
+        addToCart(4, { id: 4, name: "Amoxicillin 500mg", brand: "Mox 500", price: 133, type: "Antibiotic", rx: true, color: "green", image_url: "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=300&auto=format&fit=crop&q=80", packaging_type: "Strip of 10 Capsules" });
+      }
+      await placeOrder("COD", user?.address || undefined, uploadedFileName || "Prescription Document");
+      alert("Prescription order submitted to your assigned pharmacy for verification. You can track its live progress in My Orders!");
+      location.href = "/user/orders";
+    } catch (e: any) {
+      alert("Order submission error: " + (e.message || "Please check details and try again."));
     }
   };
+
 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
