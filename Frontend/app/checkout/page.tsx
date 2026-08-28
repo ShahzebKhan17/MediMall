@@ -84,15 +84,19 @@ export default function CheckoutPage() {
         address: deliveryAddress,
       });
 
-      if (typeof window !== "undefined" && (window as any).Razorpay) {
+      const isRealRazorpay =
+        rzpOrder.key_id &&
+        !rzpOrder.key_id.startsWith("rzp_test_placeholder") &&
+        !rzpOrder.razorpay_order_id.startsWith("order_test_");
+
+      if (isRealRazorpay && typeof window !== "undefined" && (window as any).Razorpay) {
         const options = {
-          key: rzpOrder.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_placeholder",
+          key: rzpOrder.key_id,
           amount: rzpOrder.amount,
           currency: rzpOrder.currency || "INR",
           name: "MediMall Hyperlocal",
           description: `Order for ${cart.length} item(s) from Verified Local Pharmacy`,
           order_id: rzpOrder.razorpay_order_id,
-
           prefill: {
             name: user?.name || "Customer",
             email: user?.email || "customer@medimall.in",
@@ -137,8 +141,7 @@ export default function CheckoutPage() {
         });
         razorpayInstance.open();
       } else {
-        // Fallback simulation if checkout script is blocked or offline
-        console.warn("Razorpay SDK not loaded, executing simulated test payment callback");
+        // Instant Sandbox / Test payment confirmation for development/demo
         await api.orders.verifyRazorpayOrder({
           razorpay_order_id: rzpOrder.razorpay_order_id,
           razorpay_payment_id: `pay_sim_${Date.now()}`,
@@ -153,10 +156,11 @@ export default function CheckoutPage() {
         setIsSubmitting(false);
       }
     } catch (e: any) {
-      setOrderError(e.message || "Could not initialize payment gateway. Please try again.");
+      setOrderError(e.message || "Could not complete order. Please check your network and try again.");
       setIsSubmitting(false);
     }
   };
+
 
   const handleSaveAddress = () => {
     updateProfile({ address: addressInput });
