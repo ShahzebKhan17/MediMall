@@ -85,10 +85,13 @@ def login_oauth2(form_data: OAuth2PasswordRequestForm = Depends(), response: Res
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+from typing import Optional
+
 # JSON-compatible login endpoint for frontend requests
 class LoginJSONPayload(schemas.BaseModel):
     email: str
     password: str
+    role: Optional[str] = None
 
 
 @router.post("/login", response_model=schemas.Token)
@@ -100,6 +103,25 @@ def login_json(payload: LoginJSONPayload, response: Response, db: Session = Depe
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # Strictly validate account role if a specific portal role was requested
+    if payload.role and payload.role != user.role:
+        if user.role == "patient":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access Denied: This account is registered as a Patient. Please sign in under the 'For Patients' portal.",
+            )
+        elif user.role == "pharmacy":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access Denied: This account is registered as a Pharmacy. Please sign in under the 'For Pharmacies' portal.",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access Denied: Account role '{user.role}' does not match the requested '{payload.role}' portal.",
+            )
+
     access_token = security.create_access_token(subject=user.id)
     set_auth_cookie(response, access_token)
     return {"access_token": access_token, "token_type": "bearer"}

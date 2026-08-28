@@ -11,7 +11,7 @@ export default function MedicinesPage() {
   const [query, setQuery] = useState("");
   const { data: catalogue = [], isLoading, isError, refetch } = useMedicinesQuery();
   const { dark, toggleTheme } = useTheme();
-  const { cart, addToCart, updateCartQuantity, removeFromCart, user } = useAppContext();
+  const { cart, addToCart, updateCartQuantity, removeFromCart, user, role } = useAppContext();
   const [toast, setToast] = useState("");
 
   useEffect(() => {
@@ -34,6 +34,7 @@ export default function MedicinesPage() {
   };
 
   const userInitials = user ? user.name.split(" ").map(n => n[0]).join("") : "US";
+  const homeHref = user ? (role === "pharmacy" ? "/shopkeeper/dashboard" : "/user/dashboard") : "/";
 
   // Calculate unique cart count & total price
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -46,7 +47,7 @@ export default function MedicinesPage() {
     <main className={`order-page ${dark ? "dark" : ""}`}>
       {toast && <div className="toast"><Check size={16}/>{toast}</div>}
       <header className="order-nav">
-        <a className="brand" href="/">
+        <a className="brand" href={homeHref}>
           <span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span>
         </a>
         <div className="order-location">

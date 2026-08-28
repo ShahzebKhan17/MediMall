@@ -35,7 +35,7 @@ export default function ShopkeeperSidebar({ mobileOpen, onClose }: ShopkeeperSid
 
   return (
     <aside className={`shop-side ${mobileOpen ? "show" : ""}`}>
-      <a className="brand" href="/" onClick={(e) => { e.preventDefault(); router.push("/"); if (onClose) onClose(); }}>
+      <a className="brand" href="/shopkeeper/dashboard" onClick={(e) => { e.preventDefault(); router.push("/shopkeeper/dashboard"); if (onClose) onClose(); }}>
         <span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span>
       </a>
       <div className="store-profile" onClick={() => router.push("/shopkeeper/settings")} style={{ cursor: "pointer" }}>

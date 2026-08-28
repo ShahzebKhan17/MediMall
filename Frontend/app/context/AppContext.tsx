@@ -199,7 +199,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const login = async (email: string, targetRole: "patient" | "pharmacy", password = "securepassword") => {
-    await loginMutation.mutateAsync({ email, password });
+    await loginMutation.mutateAsync({ email, password, role: targetRole });
   };
 
   const registerUser = async (profile: Partial<UserProfile>, targetRole: "patient" | "pharmacy", password = "securepassword") => {
@@ -208,6 +208,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       password,
       name: profile.name || "New User",
       role: targetRole,
+      medical_license: profile.medical_license,
       phone: profile.phone,
       address: profile.address,
       allergies: profile.allergies,

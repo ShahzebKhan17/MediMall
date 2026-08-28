@@ -8,7 +8,7 @@ import { api } from "../../lib/api";
 
 export default function CheckoutPage() {
   const { dark, toggleTheme } = useTheme();
-  const { cart, user, placeOrder, clearCart, refreshOrders, updateProfile } = useAppContext();
+  const { cart, user, role, placeOrder, clearCart, refreshOrders, updateProfile } = useAppContext();
   const [method, setMethod] = useState<"upi" | "card" | "cod">("upi");
   const [placed, setPlaced] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -16,6 +16,8 @@ export default function CheckoutPage() {
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressInput, setAddressInput] = useState(user?.address || "");
   const [catalogMeds, setCatalogMeds] = useState<Medicine[]>([]);
+
+  const homeHref = user ? (role === "pharmacy" ? "/shopkeeper/dashboard" : "/user/dashboard") : "/";
 
   useEffect(() => {
     if (user?.address) {
@@ -170,7 +172,7 @@ export default function CheckoutPage() {
   return (
     <main className={`checkout-page ${dark ? "dark" : ""}`}>
       <header className="checkout-nav">
-        <a className="brand" href="/">
+        <a className="brand" href={homeHref}>
           <span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span>
         </a>
         <button className="theme-toggle" onClick={toggleTheme}>

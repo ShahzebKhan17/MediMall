@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Building2, Check, ChevronLeft, LockKeyhole, Mail, Moon, ShieldCheck, Sun, UserRound } from "lucide-react";
+import { AlertCircle, ArrowRight, Building2, Check, ChevronLeft, LockKeyhole, Mail, Moon, ShieldCheck, Sun, UserRound } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAppContext } from "../context/AppContext";
 
@@ -13,12 +13,29 @@ export default function LoginPage() {
   const [role, setRole] = useState<"user" | "shop">("user");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleRoleChange = (newRole: "user" | "shop") => {
+    setRole(newRole);
+    setError(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setLoading(true);
     const appRole = role === "user" ? "patient" : "pharmacy";
-    await login(email, appRole, password);
-    router.push(role === "user" ? "/user/dashboard" : "/shopkeeper/dashboard");
+    try {
+      await login(email, appRole, password);
+      router.push(role === "user" ? "/user/dashboard" : "/shopkeeper/dashboard");
+    } catch (err: any) {
+      console.error("Login failed:", err);
+      const errMsg = err?.message || "Sign in failed. Please check your credentials.";
+      setError(errMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -44,7 +61,7 @@ export default function LoginPage() {
           <button
             type="button"
             className={role === "user" ? "chosen" : ""}
-            onClick={() => setRole("user")}
+            onClick={() => handleRoleChange("user")}
           >
             <UserRound size={18} />
             <span>
@@ -56,7 +73,7 @@ export default function LoginPage() {
           <button
             type="button"
             className={role === "shop" ? "chosen" : ""}
-            onClick={() => setRole("shop")}
+            onClick={() => handleRoleChange("shop")}
           >
             <Building2 size={18} />
             <span>
@@ -66,13 +83,38 @@ export default function LoginPage() {
             <Check size={15} />
           </button>
         </div>
+
+        {error && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "10px",
+              background: "#fff1f0",
+              border: "1px solid #ffa39e",
+              borderRadius: "10px",
+              padding: "12px 14px",
+              marginBottom: "18px",
+              color: "#cf1322",
+              fontSize: "13px",
+              lineHeight: 1.4,
+            }}
+          >
+            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
+            <span>{error}</span>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <label>
             Email address
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (error) setError(null);
+              }}
               placeholder="you@example.com"
               required
             />
@@ -82,7 +124,10 @@ export default function LoginPage() {
             <input 
               type="password" 
               value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (error) setError(null);
+              }}
               placeholder="Enter your password" 
               required 
             />
@@ -93,8 +138,8 @@ export default function LoginPage() {
             </label>
             <a href="#">Forgot password?</a>
           </div>
-          <button className="auth-submit">
-            Sign in <ArrowRight size={17} />
+          <button className="auth-submit" disabled={loading}>
+            {loading ? "Signing in..." : "Sign in"} <ArrowRight size={17} />
           </button>
         </form>
         <div className="auth-divider">

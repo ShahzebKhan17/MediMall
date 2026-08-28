@@ -67,12 +67,13 @@ export async function apiFetch<T>(
 
 export const api = {
   auth: {
-    login: async (payload: { email: string; password?: string }) => {
+    login: async (payload: { email: string; password?: string; role?: string }) => {
       const res = await apiFetch<{ access_token: string; token_type: string }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({
           email: payload.email,
           password: payload.password || "securepassword",
+          role: payload.role,
         }),
       });
       if (res?.access_token) {
@@ -91,6 +92,7 @@ export const api = {
       password?: string;
       name: string;
       role?: string;
+      medical_license?: string;
       phone?: string;
       address?: string;
       allergies?: string;
@@ -110,6 +112,7 @@ export const api = {
           password: userData.password || "securepassword",
           name: userData.name,
           role: userData.role || "patient",
+          medical_license: userData.medical_license,
           phone: userData.phone || "",
           address: userData.address || "",
           allergies: userData.allergies || "",
@@ -121,6 +124,7 @@ export const api = {
         await api.auth.login({
           email: userData.email,
           password: userData.password || "securepassword",
+          role: userData.role,
         });
       } catch (e) {
         console.warn("Auto login after register failed", e);

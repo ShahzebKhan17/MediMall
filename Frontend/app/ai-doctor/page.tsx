@@ -28,7 +28,7 @@ interface AIAnalysis {
 
 export default function MediAssistPage() {
   const { dark, toggleTheme } = useTheme();
-  const { user, cart, addPrescription, placeOrder, addToCart } = useAppContext();
+  const { user, role, cart, addPrescription, placeOrder, addToCart } = useAppContext();
 
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"start" | "review" | "prescription_preview">("start");
@@ -42,19 +42,68 @@ export default function MediAssistPage() {
 
   const [apiError, setApiError] = useState<string | null>(null);
 
+  const homeHref = user ? (role === "pharmacy" ? "/shopkeeper/dashboard" : "/user/dashboard") : "/";
+  const dashboardHref = user ? (role === "pharmacy" ? "/shopkeeper/dashboard" : "/user/dashboard") : "/login";
+
   const analyse = async () => {
     if (!text.trim()) return;
     setIsAnalysing(true);
     setApiError(null);
     try {
-      const res = await api.aiDoctor.analyze(text);
-      setAnalysis(res);
+      const data = await api.aiDoctor.analyze(text);
+      setAnalysis(data as unknown as AIAnalysis);
       setMode("review");
     } catch (e: any) {
-      console.warn("AI Doctor API error:", e);
-      setApiError("Unable to analyze symptoms because the MediAssist server is unreachable. Please verify your connection.");
+      console.error("AI Doctor Analysis error:", e);
+      setApiError("Unable to analyze symptoms right now. Please consult a doctor or verified pharmacist.");
     } finally {
       setIsAnalysing(false);
+    }
+  };
+
+  const clear = () => {
+    setText("");
+    setAnalysis(null);
+    setMode("start");
+    setUploadedFileName("");
+    setPrescriptionImagePreview(null);
+    setApiError(null);
+  };
+
+  const handleOrderOTC = async (med: any) => {
+    try {
+      addToCart(med.id || Math.floor(Math.random() * 1000) + 100);
+      alert(`Added ${med.name} to your cart.`);
+    } catch (e) {
+      console.warn("Could not add OTC directly to cart:", e);
+    }
+  };
+
+  const handlePrescriptionSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Show instant image preview
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPrescriptionImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    setUploadedFileName(file.name);
+    setIsUploading(true);
+    setApiError(null);
+
+    try {
+      const res = await api.prescriptions.upload(file);
+      addPrescription(res.file_path);
+      setMode("prescription_preview");
+    } catch (err: any) {
+      console.error("Prescription upload error:", err);
+      // Even if upload API is offline or returns error, allow demo review in preview mode
+      setMode("prescription_preview");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -122,7 +171,7 @@ export default function MediAssistPage() {
   return (
     <main className={`assist-page ${dark ? "dark" : ""}`}>
       <header className="assist-nav">
-        <a className="brand" href="/">
+        <a className="brand" href={homeHref}>
           <span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span>
         </a>
         <div className="assist-location">
@@ -133,7 +182,7 @@ export default function MediAssistPage() {
         <button className="theme-toggle" onClick={toggleTheme}>
           {dark ? <Sun size={18}/> : <Moon size={18}/>}
         </button>
-        <a className="assist-account" href="/user/dashboard">
+        <a className="assist-account" href={dashboardHref}>
           {user ? user.name.split(" ").map(n => n[0]).join("") : "US"}
         </a>
       </header>

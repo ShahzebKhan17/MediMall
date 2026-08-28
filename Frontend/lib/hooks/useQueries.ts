@@ -54,7 +54,7 @@ export function useMedicinesQuery(q?: string, type?: string) {
 export function useLoginMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { email: string; password?: string }) => api.auth.login(payload),
+    mutationFn: (payload: { email: string; password?: string; role?: string }) => api.auth.login(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.user });
       queryClient.invalidateQueries({ queryKey: queryKeys.orders });
@@ -71,6 +71,7 @@ export function useRegisterMutation() {
       password?: string;
       name: string;
       role?: string;
+      medical_license?: string;
       phone?: string;
       address?: string;
       allergies?: string;

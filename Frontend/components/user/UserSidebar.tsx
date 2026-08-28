@@ -32,7 +32,7 @@ export default function UserSidebar({ mobileOpen, onClose }: UserSidebarProps) {
 
   return (
     <aside className={`sidebar ${mobileOpen ? "show" : ""}`}>
-      <a className="brand" href="/" onClick={(e) => { e.preventDefault(); router.push("/"); if (onClose) onClose(); }}>
+      <a className="brand" href="/user/dashboard" onClick={(e) => { e.preventDefault(); router.push("/user/dashboard"); if (onClose) onClose(); }}>
         <span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span>
       </a>
       <div className="side-section">

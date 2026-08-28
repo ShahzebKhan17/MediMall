@@ -33,6 +33,7 @@ export default function Register() {
         phone: role === "patient" ? phoneOrOwner : "",
         email,
         address: role === "patient" ? undefined : "Shop Address, Bengaluru",
+        medical_license: role === "pharmacy" ? medicalLicense : undefined,
       },
       role,
       password
