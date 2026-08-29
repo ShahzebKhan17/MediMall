@@ -87,6 +87,48 @@ export default function UserDashboard() {
         </div>
       )}
 
+      {user && user.is_email_verified === false && (
+        <div
+          style={{
+            background: "#fffbe6",
+            border: "1px solid #ffe58f",
+            color: "#ad6800",
+            padding: "14px 18px",
+            borderRadius: "10px",
+            marginBottom: "20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "14px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px" }}>
+            <AlertCircle size={18} color="#faad14" style={{ flexShrink: 0 }} />
+            <span>
+              <strong>Action Required:</strong> Please verify your email (<strong>{user.email}</strong>). Click the link in your inbox within 24 hours to enable ordering medicines.
+            </span>
+          </div>
+          <a
+            href={`/verify-email`}
+            style={{
+              background: "#d48806",
+              color: "#ffffff",
+              padding: "6px 14px",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            Verify Now
+          </a>
+        </div>
+      )}
+
       <div className="welcome">
         <div>
           <p>TODAY</p>

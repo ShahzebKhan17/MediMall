@@ -82,6 +82,45 @@ export default function ShopkeeperDashboard() {
         </div>
       )}
 
+      {user && user.is_email_verified === false && (
+        <div
+          style={{
+            background: "#fffbe6",
+            border: "1px solid #ffe58f",
+            color: "#ad6800",
+            padding: "14px 18px",
+            borderRadius: "10px",
+            marginBottom: "20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "14px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px" }}>
+            <span style={{ fontSize: "18px" }}>⚠️</span>
+            <span>
+              <strong>Pharmacy Verification Notice:</strong> Your registered email (<strong>{user.email}</strong>) is not verified yet. Please check your inbox for the 24-hour verification link.
+            </span>
+          </div>
+          <a
+            href={`/verify-email`}
+            style={{
+              background: "#d48806",
+              color: "#ffffff",
+              padding: "6px 14px",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            Verify Email
+          </a>
+        </div>
+      )}
+
       <div className="shop-welcome">
         <div>
           <p>PHARMACY WORKSPACE</p>

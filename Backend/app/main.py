@@ -25,9 +25,26 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 async def lifespan(app: FastAPI):
     # Startup: Initialize Database Tables
     try:
+        from sqlalchemy import inspect
         Base.metadata.create_all(bind=engine)
+        
+        # Safely migrate existing users table schema if needed
+        with engine.connect() as conn:
+            inspector = inspect(engine)
+            if "users" in inspector.get_table_names():
+                existing_cols = [c["name"] for c in inspector.get_columns("users")]
+                if "is_email_verified" not in existing_cols:
+                    is_sqlite = engine.name == "sqlite"
+                    conn.execute(text("ALTER TABLE users ADD COLUMN is_email_verified BOOLEAN DEFAULT 0 NOT NULL" if is_sqlite else "ALTER TABLE users ADD COLUMN is_email_verified BOOLEAN DEFAULT FALSE NOT NULL"))
+                    conn.commit()
+                if "email_verification_token" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN email_verification_token VARCHAR(255)"))
+                    conn.commit()
+                if "email_verification_expires_at" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN email_verification_expires_at TIMESTAMP" if engine.name == "sqlite" else "ALTER TABLE users ADD COLUMN email_verification_expires_at TIMESTAMP WITH TIME ZONE"))
+                    conn.commit()
     except Exception as err:
-        logger.error("Database table initialization error: %s", err)
+        logger.error("Database table initialization/migration error: %s", err)
 
     # Seed initial medicines & default pharmacy
     db = SessionLocal()
@@ -54,12 +71,16 @@ async def lifespan(app: FastAPI):
                 role="pharmacy",
                 medical_license="DL-KA-BNG-2025-0042",
                 address="100 Feet Road, Indiranagar, Bengaluru, Karnataka 560038",
-                phone="+91 80 4123 4567",
+                phone="+919795406782",
                 latitude=12.9716,
                 longitude=77.5946,
+                is_email_verified=True,
             )
             db.add(pharmacy_user)
             logger.info("Initialized default pharmacy profile: %s", pharmacy_user.name)
+        else:
+            if not default_pharmacy.is_email_verified:
+                default_pharmacy.is_email_verified = True
 
         db.commit()
     except Exception as err:

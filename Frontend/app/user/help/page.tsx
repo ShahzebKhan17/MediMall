@@ -72,7 +72,7 @@ export default function PatientHelpCenterPage() {
           </div>
           <div>
             <b style={{ fontSize: "14px", display: "block" }}>Pharmacist Helpline</b>
-            <span style={{ fontSize: "12px", color: "#227f5e", fontWeight: 600 }}>+91 80 4123 4567</span>
+            <a href="tel:+919795406782" style={{ fontSize: "12px", color: "#227f5e", fontWeight: 600, textDecoration: "none" }}>+91 97954 06782</a>
             <small style={{ display: "block", color: "#82918b", fontSize: "10px" }}>Toll-free 24/7 emergency</small>
           </div>
         </div>

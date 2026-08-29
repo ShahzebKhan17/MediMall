@@ -350,6 +350,28 @@ export default function CheckoutPage() {
               </div>
             )}
 
+            {user && user.is_email_verified === false && (
+              <div
+                style={{
+                  background: "#fffbe6",
+                  border: "1px solid #ffe58f",
+                  color: "#ad6800",
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  marginTop: "12px",
+                  fontSize: "12px",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "8px",
+                }}
+              >
+                <AlertCircle size={16} color="#faad14" style={{ flexShrink: 0, marginTop: "2px" }} />
+                <div>
+                  <strong>Email Verification Needed:</strong> Please <a href="/verify-email" style={{ color: "#ad6800", fontWeight: 700, textDecoration: "underline" }}>verify your email</a> before placing orders.
+                </div>
+              </div>
+            )}
+
             <button disabled={cart.length === 0 || isSubmitting} onClick={handlePlaceOrder}>
               {isSubmitting ? (
                 <>Processing order... <Loader2 size={16} className="animate-spin" /></>

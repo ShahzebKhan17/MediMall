@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-before-production"
     razorpay_key_id: str = "rzp_test_placeholder"
     razorpay_key_secret: str = "placeholder_secret"
+    resend_api_key: str = ""
+    resend_from_email: str = "MediMall <onboarding@resend.dev>"
+    frontend_url: str = "http://localhost:3000"
+
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

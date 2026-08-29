@@ -81,6 +81,26 @@ export const api = {
       }
       return res;
     },
+    verifyEmail: async (token: string) => {
+      return apiFetch<{
+        status: string;
+        message: string;
+        email?: string;
+        is_verified: boolean;
+      }>("/auth/verify-email", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      });
+    },
+    resendVerification: async (email: string) => {
+      return apiFetch<{
+        status: string;
+        message: string;
+      }>("/auth/resend-verification", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+    },
     logout: async () => {
       clearStoredAuthToken();
       return apiFetch<{ status: string; message: string }>("/auth/logout", {
@@ -143,6 +163,10 @@ export const api = {
         address?: string;
         allergies?: string;
         blood_group?: string;
+        medical_license?: string;
+        is_email_verified?: boolean;
+        latitude?: number;
+        longitude?: number;
       }>("/auth/me");
     },
     updateMe: async (data: Record<string, any>) => {

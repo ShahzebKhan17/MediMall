@@ -9,7 +9,7 @@ export default function ShopSettingsPage() {
 
   const [storeName, setStoreName] = useState(user?.name || "");
   const [licenseNumber, setLicenseNumber] = useState(user?.medical_license || "DL-KA-BNG-2025-0042");
-  const [phone, setPhone] = useState(user?.phone || "+91 80 4123 4567");
+  const [phone, setPhone] = useState(user?.phone || "+919795406782");
   const [email, setEmail] = useState(user?.email || "");
   const [address, setAddress] = useState(user?.address || "100 Feet Road, Indiranagar, Bengaluru, Karnataka 560038");
   const [openingHours, setOpeningHours] = useState("08:00 AM - 11:00 PM (All Days)");

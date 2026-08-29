@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowRight, Building2, Check, ChevronLeft, LockKeyhole, Mail, Moon, ShieldCheck, Sun, UserRound } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  Building2,
+  Check,
+  ChevronLeft,
+  Moon,
+  ShieldCheck,
+  Sun,
+  UserRound,
+} from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAppContext } from "../context/AppContext";
 
@@ -10,6 +20,7 @@ export default function LoginPage() {
   const { dark, toggleTheme } = useTheme();
   const { login } = useAppContext();
   const router = useRouter();
+
   const [role, setRole] = useState<"user" | "shop">("user");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,7 +55,7 @@ export default function LoginPage() {
         <a className="brand" href="/">
           <span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span>
         </a>
-        <button className="theme-toggle" onClick={toggleTheme}>
+        <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle Theme">
           {dark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </header>
@@ -121,33 +132,28 @@ export default function LoginPage() {
           </label>
           <label>
             Password
-            <input 
-              type="password" 
-              value={password} 
+            <input
+              type="password"
+              value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
                 if (error) setError(null);
               }}
-              placeholder="Enter your password" 
-              required 
+              placeholder="Enter your password"
+              required
             />
           </label>
           <div className="auth-options">
             <label>
-              <input type="checkbox" /> Keep me signed in
+              <input type="checkbox" defaultChecked /> Keep me signed in
             </label>
             <a href="#">Forgot password?</a>
           </div>
-          <button className="auth-submit" disabled={loading}>
+          <button className="auth-submit" disabled={loading} type="submit">
             {loading ? "Signing in..." : "Sign in"} <ArrowRight size={17} />
           </button>
         </form>
-        <div className="auth-divider">
-          <span>OR</span>
-        </div>
-        <button className="otp">
-          <Mail size={17} />Continue with OTP
-        </button>
+
         <p className="auth-foot">
           New to MediMall? <a href="/register">Create your account</a>
         </p>
@@ -158,4 +164,3 @@ export default function LoginPage() {
     </main>
   );
 }
-

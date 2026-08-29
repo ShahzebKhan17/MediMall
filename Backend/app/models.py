@@ -27,7 +27,11 @@ class User(Base):
     medical_license = Column(String(255), nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+    is_email_verified = Column(Boolean, default=False, nullable=False)
+    email_verification_token = Column(String(255), nullable=True, index=True)
+    email_verification_expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
 
     orders = relationship("Order", back_populates="user", cascade="all, delete-orphan", foreign_keys="Order.user_id")
     prescriptions = relationship("PrescriptionRecord", back_populates="user", cascade="all, delete-orphan")
@@ -116,3 +120,4 @@ class PrescriptionRecord(Base):
     uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     user = relationship("User", back_populates="prescriptions")
+

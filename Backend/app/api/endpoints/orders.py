@@ -36,7 +36,7 @@ def get_assigned_pharmacy(db: Session, patient_lat: float, patient_lng: float) -
             role="pharmacy",
             medical_license="DL-KA-BNG-2025-0042",
             address="100 Feet Road, Indiranagar, Bengaluru, Karnataka 560038",
-            phone="+91 80 4123 4567",
+            phone="+919795406782",
             latitude=12.9716,
             longitude=77.5946,
         )
@@ -65,6 +65,12 @@ def place_order(
     user = db.query(User).filter(User.id == current_user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if not user.is_email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address to place orders. Check your inbox or request a new verification link from your dashboard.",
+        )
 
     address = order_in.address or user.address
     if not address:
@@ -268,6 +274,12 @@ def create_razorpay_order(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+    if not user.is_email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address to make payments. Check your inbox or request a new verification link.",
+        )
+
     if not payload.items:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -333,6 +345,12 @@ def verify_razorpay_payment(
     user = db.query(User).filter(User.id == current_user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if not user.is_email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address to confirm payments.",
+        )
 
     address = verify_in.address or user.address
     if not address:

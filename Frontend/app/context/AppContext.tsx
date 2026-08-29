@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { api } from "../../lib/api";
 import { useCartStore, Medicine, CartItem } from "../../lib/store/useCartStore";
 import {
   useUserQuery,
@@ -56,6 +57,7 @@ export interface UserProfile {
   bloodGroup: string;
   role?: "patient" | "pharmacy";
   medical_license?: string;
+  is_email_verified?: boolean;
 }
 
 
@@ -70,6 +72,7 @@ interface AppContextProps {
   serverError: string | null;
   login: (email: string, role: "patient" | "pharmacy", password?: string) => Promise<void>;
   registerUser: (profile: Partial<UserProfile>, role: "patient" | "pharmacy", password?: string) => Promise<void>;
+  resendVerificationEmail: (customEmail?: string) => Promise<void>;
   logout: () => Promise<void>;
   addToCart: (id: number, medicine?: Medicine) => void;
   removeFromCart: (id: number) => void;
@@ -119,6 +122,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       allergies: me.allergies || "No known allergies",
       bloodGroup: me.blood_group || "O+",
       role: (me.role as "patient" | "pharmacy") || "patient",
+      medical_license: me.medical_license,
+      is_email_verified: me.is_email_verified ?? false,
     };
   }, [userQuery.data]);
 
@@ -216,6 +221,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
+  const resendVerificationEmail = async (customEmail?: string) => {
+    const targetEmail = customEmail || user?.email;
+    if (!targetEmail) {
+      throw new Error("No email address provided for verification.");
+    }
+    await api.auth.resendVerification(targetEmail);
+  };
+
   const logout = async () => {
     try {
       await logoutMutation.mutateAsync();
@@ -252,11 +265,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const addPrescription = (name: string) => {
-    // Invalidate prescriptions cache or optimistically append
-    queryClient.setQueryData(queryKeys.prescriptions, (old: any[] = []) => [
-      { id: Date.now(), user_id: "", file_path: name, uploaded_at: new Date().toISOString() },
-      ...old,
-    ]);
+    // Tanstack query will automatically refetch user prescriptions
   };
 
   const updateProfile = async (profile: Partial<UserProfile>) => {
@@ -285,6 +294,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         serverError,
         login,
         registerUser,
+        resendVerificationEmail,
         logout,
         addToCart,
         removeFromCart,

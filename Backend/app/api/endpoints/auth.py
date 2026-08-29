@@ -1,4 +1,8 @@
-from datetime import timedelta
+import logging
+import random
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -8,7 +12,9 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.models import User
 from app import schemas
+from app.services import email as email_service
 
+logger = logging.getLogger("medimall.auth")
 router = APIRouter()
 settings = get_settings()
 
@@ -36,13 +42,15 @@ def register(user_in: schemas.UserCreate, response: Response, db: Session = Depe
             detail="A user with this email already exists.",
         )
     
-    import random
-    
     hashed_password = security.get_password_hash(user_in.password)
     
     # Assign actual coordinates or fallback to random offset around center of Indiranagar, Bengaluru
     lat = user_in.latitude if user_in.latitude is not None else (12.9716 + random.uniform(-0.015, 0.015))
     lng = user_in.longitude if user_in.longitude is not None else (77.5946 + random.uniform(-0.015, 0.015))
+
+    # Generate cryptographically secure verification token (valid for 24 hours)
+    raw_token, hashed_token = email_service.generate_verification_token()
+    verification_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
 
     new_user = User(
         email=user_in.email,
@@ -58,16 +66,27 @@ def register(user_in: schemas.UserCreate, response: Response, db: Session = Depe
         medical_license=user_in.medical_license,
         latitude=lat,
         longitude=lng,
+        is_email_verified=False,
+        email_verification_token=hashed_token,
+        email_verification_expires_at=verification_expires_at,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    # Dispatch branded verification email via Resend
+    email_service.send_verification_email(
+        to_email=new_user.email,
+        user_name=new_user.name,
+        raw_token=raw_token,
+    )
 
     # Set authentication cookie for newly registered user
     access_token = security.create_access_token(subject=new_user.id)
     set_auth_cookie(response, access_token)
 
     return new_user
+
 
 
 @router.post("/token", response_model=schemas.Token)
@@ -125,6 +144,112 @@ def login_json(payload: LoginJSONPayload, response: Response, db: Session = Depe
     access_token = security.create_access_token(subject=user.id)
     set_auth_cookie(response, access_token)
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/verify-email", response_model=schemas.VerifyEmailResponse)
+def verify_email(payload: schemas.VerifyEmailRequest, db: Session = Depends(get_db)):
+    raw_token = payload.token.strip()
+    if not raw_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification token is required.",
+        )
+
+    hashed_token = email_service.hash_token(raw_token)
+    user = db.query(User).filter(User.email_verification_token == hashed_token).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token. Please request a new verification email.",
+        )
+
+    # Check expiration (24 hours)
+    now = datetime.now(timezone.utc)
+    # Handle both timezone-aware and naive timestamps from SQLite/Postgres
+    if user.email_verification_expires_at:
+        exp = user.email_verification_expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if exp < now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This verification link has expired (24-hour validity limit). Please request a new verification email.",
+            )
+
+    # If already verified
+    if user.is_email_verified:
+        return schemas.VerifyEmailResponse(
+            status="success",
+            message="Your email address is already verified.",
+            email=user.email,
+            is_verified=True,
+        )
+
+    # Set as verified and clear tokens immediately
+    user.is_email_verified = True
+    user.email_verification_token = None
+    user.email_verification_expires_at = None
+    db.commit()
+    db.refresh(user)
+
+    logger.info("Successfully verified email for user %s (%s)", user.email, user.id)
+
+    return schemas.VerifyEmailResponse(
+        status="success",
+        message="Email verified successfully! You now have full access to order medicines and manage prescriptions.",
+        email=user.email,
+        is_verified=True,
+    )
+
+
+@router.post("/resend-verification", response_model=schemas.ResendVerificationResponse)
+def resend_verification(payload: schemas.ResendVerificationRequest, db: Session = Depends(get_db)):
+    email_clean = payload.email.strip().lower()
+    user = db.query(User).filter(User.email == email_clean).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this email address.",
+        )
+
+    if user.is_email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This email address is already verified.",
+        )
+
+    # Rate limiting protection: 60-second debounce between requests
+    now = datetime.now(timezone.utc)
+    if user.email_verification_expires_at:
+        exp = user.email_verification_expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        # 24h expiration was set; if expires_at - now > 23 hours 59 mins, wait 60s
+        time_left = exp - now
+        if time_left > timedelta(hours=23, minutes=59):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Please wait 60 seconds before requesting another verification email.",
+            )
+
+    # Generate fresh 24h token
+    raw_token, hashed_token = email_service.generate_verification_token()
+    user.email_verification_token = hashed_token
+    user.email_verification_expires_at = now + timedelta(hours=24)
+    db.commit()
+
+    # Dispatch email
+    email_service.send_verification_email(
+        to_email=user.email,
+        user_name=user.name,
+        raw_token=raw_token,
+    )
+
+    return schemas.ResendVerificationResponse(
+        status="success",
+        message=f"A fresh verification email has been sent to {user.email}.",
+    )
 
 
 @router.post("/logout")

@@ -34,6 +34,7 @@ class UserProfile(BaseModel):
     medical_license: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    is_email_verified: bool = False
     created_at: datetime
 
     class Config:
@@ -59,6 +60,27 @@ class Token(BaseModel):
 
 class TokenPayload(BaseModel):
     sub: Optional[str] = None
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class VerifyEmailResponse(BaseModel):
+    status: str = "success"
+    message: str
+    email: Optional[str] = None
+    is_verified: bool = True
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class ResendVerificationResponse(BaseModel):
+    status: str = "success"
+    message: str
+
 
 
 # Medicine schemas

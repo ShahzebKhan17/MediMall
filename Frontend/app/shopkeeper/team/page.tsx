@@ -23,7 +23,7 @@ export default function ShopkeeperTeamPage() {
       name: user?.name || "Pharmacist in-charge",
       role: "Chief Pharmacist",
       email: user?.email || "pharmacist@medimall.in",
-      phone: user?.phone || "+91 80 4123 4567",
+      phone: user?.phone || "+919795406782",
       status: "On Shift",
       isPrimary: true,
     },
