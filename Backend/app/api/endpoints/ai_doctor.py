@@ -1,7 +1,14 @@
+import logging
 from typing import List, Optional
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
+from app.core.database import get_db
+from app.models import Medicine
+from app.services.ai_doctor_llm import analyze_patient_symptoms
+
+logger = logging.getLogger("medimall.ai_doctor")
 router = APIRouter()
 
 
@@ -16,7 +23,7 @@ class RecommendedMedicine(BaseModel):
     brand: Optional[str] = None
     type: str
     purpose: str
-    requires_rx: bool
+    requires_rx: bool = False
     price: Optional[int] = None
     image_url: Optional[str] = None
     packaging_type: Optional[str] = None
@@ -29,150 +36,71 @@ class SymptomAnalysisResponse(BaseModel):
     recommended_otc: List[RecommendedMedicine]
     lifestyle_advice: List[str]
     disclaimer: str
-    requires_pharmacist_review: bool
+    requires_pharmacist_review: bool = False
 
 
 @router.post("/analyze", response_model=SymptomAnalysisResponse)
-def analyze_symptoms(payload: SymptomRequest) -> SymptomAnalysisResponse:
-    text = payload.symptoms.lower()
+def analyze_symptoms(payload: SymptomRequest, db: Session = Depends(get_db)) -> SymptomAnalysisResponse:
+    symptoms_text = payload.symptoms.strip()
+    language_text = payload.language or "English"
+
+    # 1. Execute LLM clinical analysis (Gemini / OpenAI / Clinical Engine)
+    analysis_raw = analyze_patient_symptoms(symptoms=symptoms_text, language=language_text)
+
+    # 2. Enrich recommendations with real inventory from DB
+    processed_recommendations: List[RecommendedMedicine] = []
     
-    recommendations: List[RecommendedMedicine] = []
-    lifestyle: List[str] = []
-    urgency = "Low"
-    overview_parts = []
-    requires_rx_review = False
+    for rec in analysis_raw.get("recommended_otc", []):
+        med_name = rec.get("name", "")
+        med_brand = rec.get("brand", "")
+        
+        # Search inventory for exact or partial salt/name match
+        db_med = None
+        if med_name:
+            first_word = med_name.split()[0]
+            db_med = db.query(Medicine).filter(
+                (Medicine.name.ilike(f"%{first_word}%")) | 
+                (Medicine.brand.ilike(f"%{first_word}%"))
+            ).first()
 
-    # Red flag / Emergency detection
-    emergency_keywords = ["chest pain", "shortness of breath", "fainting", "severe blood", "difficulty breathing", "heart attack", "unconscious"]
-    if any(k in text for k in emergency_keywords):
-        return SymptomAnalysisResponse(
-            summary="Emergency Symptoms Detected",
-            condition_overview="Your symptoms may indicate a potentially urgent medical condition that requires immediate emergency medical evaluation.",
-            urgency_level="High / Urgent",
-            recommended_otc=[],
-            lifestyle_advice=[
-                "Seek immediate emergency room care or dial emergency medical services.",
-                "Do not attempt self-medication for severe chest or respiratory distress."
-            ],
-            disclaimer="CRITICAL: MediAssist is an automated triage tool, not a doctor. Immediate in-person medical care is required.",
-            requires_pharmacist_review=True
-        )
-
-    # Symptom parsing
-    if any(k in text for k in ["fever", "headache", "body ache", "pain", "temperature"]):
-        overview_parts.append("Mild febrile / pain symptoms")
-        recommendations.append(
-            RecommendedMedicine(
-                id=1,
-                name="Paracetamol 650mg",
-                brand="Dolo 650 · Strip of 15 tablets",
-                type="Pain relief & Antipyretic",
-                purpose="Relief from fever, headaches, and mild body aches",
-                requires_rx=False,
-                price=34,
-                image_url="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&auto=format&fit=crop&q=80",
-                packaging_type="Blister Strip of 15 Tablets (Orange/White)"
+        if db_med:
+            processed_recommendations.append(
+                RecommendedMedicine(
+                    id=db_med.id,
+                    name=db_med.name,
+                    brand=db_med.brand,
+                    type=db_med.type,
+                    purpose=rec.get("purpose") or db_med.type,
+                    requires_rx=db_med.rx,
+                    price=db_med.price,
+                    image_url=db_med.image_url or rec.get("image_url"),
+                    packaging_type=db_med.packaging_type or rec.get("packaging_type")
+                )
             )
-        )
-        lifestyle.append("Stay well hydrated with warm water and electrolytes.")
-        lifestyle.append("Ensure adequate rest and monitor temperature every 4-6 hours.")
-
-    if any(k in text for k in ["cold", "sneezing", "runny nose", "allergy", "itchy", "congestion", "cough"]):
-        overview_parts.append("Upper respiratory / allergic rhinitis symptoms")
-        recommendations.append(
-            RecommendedMedicine(
-                id=2,
-                name="Cetirizine 10mg",
-                brand="Cetzine · Strip of 10 tablets",
-                type="Allergy care / Antihistamine",
-                purpose="Relieves sneezing, runny nose, and allergic reactions",
-                requires_rx=False,
-                price=28,
-                image_url="https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=300&auto=format&fit=crop&q=80",
-                packaging_type="Strip of 10 Tablets (Blue Foil Strip)"
+        else:
+            processed_recommendations.append(
+                RecommendedMedicine(
+                    id=rec.get("id"),
+                    name=rec.get("name", "Recommended OTC Medicine"),
+                    brand=rec.get("brand"),
+                    type=rec.get("type", "General Wellness"),
+                    purpose=rec.get("purpose", "Symptomatic relief"),
+                    requires_rx=bool(rec.get("requires_rx", False)),
+                    price=rec.get("price") or 45,
+                    image_url=rec.get("image_url") or "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&auto=format&fit=crop&q=80",
+                    packaging_type=rec.get("packaging_type") or "Standard Unit Packaging"
+                )
             )
-        )
-        lifestyle.append("Steam inhalation twice daily can help clear nasal congestion.")
-        lifestyle.append("Avoid cold drinks, dust, and known allergens.")
 
-    if any(k in text for k in ["weakness", "fatigue", "tired", "energy", "bone", "joint"]):
-        overview_parts.append("General fatigue & nutritional support indication")
-        recommendations.append(
-            RecommendedMedicine(
-                id=3,
-                name="Vitamin D3 60K",
-                brand="Uprise-D3 · Pack of 4 capsules",
-                type="Vitamins & Nutrition",
-                purpose="Supports bone health, immunity, and overall energy levels",
-                requires_rx=False,
-                price=116,
-                image_url="https://images.unsplash.com/photo-1550572017-edd951aa8f72?w=300&auto=format&fit=crop&q=80",
-                packaging_type="Box of 4 Softgel Capsules (Gold Blister)"
-            )
-        )
-        lifestyle.append("Maintain a balanced diet rich in leafy greens, proteins, and citrus fruits.")
-
-    if any(k in text for k in ["infection", "throat pain", "tonsil", "pus", "bacterial", "severe"]):
-        overview_parts.append("Potential bacterial infection requiring clinical diagnosis")
-        recommendations.append(
-            RecommendedMedicine(
-                id=4,
-                name="Amoxicillin 500mg",
-                brand="Mox 500 · Strip of 10 capsules",
-                type="Antibiotic (Schedule H)",
-                purpose="Prescription antibiotic for bacterial infections",
-                requires_rx=True,
-                price=133,
-                image_url="https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=300&auto=format&fit=crop&q=80",
-                packaging_type="Strip of 10 Capsules (Green/Red Blister)"
-            )
-        )
-        requires_rx_review = True
-        urgency = "Moderate"
-        lifestyle.append("Antibiotics must only be taken after pharmacist validation and doctor's prescription.")
-
-    if any(k in text for k in ["acidity", "gas", "reflux", "heartburn", "stomach"]):
-        overview_parts.append("Gastric acidity / acid reflux symptoms")
-        recommendations.append(
-            RecommendedMedicine(
-                id=5,
-                name="Pantoprazole 40mg",
-                brand="Pan-40 · Strip of 15 tablets",
-                type="Antacid & Gastric",
-                purpose="Reduces stomach acid, heartburn, and gastroesophageal reflux",
-                requires_rx=False,
-                price=89,
-                image_url="https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=300&auto=format&fit=crop&q=80",
-                packaging_type="Strip of 15 Tablets (Silver/Yellow Foil)"
-            )
-        )
-        lifestyle.append("Avoid heavy, oily meals and eat smaller, frequent portions.")
-
-    if not recommendations:
-        overview_parts.append("General non-specific wellness symptoms")
-        recommendations.append(
-            RecommendedMedicine(
-                id=1,
-                name="Paracetamol 650mg",
-                brand="Dolo 650 · Strip of 15 tablets",
-                type="General relief",
-                purpose="General symptomatic relief and pharmacist consultation",
-                requires_rx=False,
-                price=34,
-                image_url="https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&auto=format&fit=crop&q=80",
-                packaging_type="Blister Strip of 15 Tablets (Orange/White)"
-            )
-        )
-        lifestyle.append("Keep a log of when symptoms started and drink plenty of fluids.")
-
-    overview_text = " · ".join(overview_parts) + ". MediAssist has structured your symptoms for licensed pharmacist validation."
-    
     return SymptomAnalysisResponse(
-        summary=f"Analysis of {len(recommendations)} health indicator(s)",
-        condition_overview=overview_text,
-        urgency_level=urgency,
-        recommended_otc=recommendations,
-        lifestyle_advice=lifestyle,
-        disclaimer="MediAssist provides guidance and preliminary triage. All prescription medicines require pharmacist approval prior to fulfillment.",
-        requires_pharmacist_review=requires_rx_review
+        summary=analysis_raw.get("summary", "Symptom Analysis"),
+        condition_overview=analysis_raw.get("condition_overview", "Your symptoms have been analyzed by MediAssist AI."),
+        urgency_level=analysis_raw.get("urgency_level", "Low"),
+        recommended_otc=processed_recommendations,
+        lifestyle_advice=analysis_raw.get("lifestyle_advice", [
+            "Stay adequately hydrated throughout the day.",
+            "Rest and monitor symptoms closely. If condition worsens, consult a doctor."
+        ]),
+        disclaimer=analysis_raw.get("disclaimer", "MediAssist provides clinical triage guidance. For worsening symptoms, consult a licensed physician."),
+        requires_pharmacist_review=bool(analysis_raw.get("requires_pharmacist_review", False))
     )

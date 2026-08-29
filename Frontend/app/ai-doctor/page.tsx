@@ -258,9 +258,21 @@ export default function MediAssistPage() {
 
   const handleConfirmPrescriptionOrder = async () => {
     try {
-      if (cart.length === 0) {
-        addToCart(1, { id: 1, name: "Paracetamol 650mg", brand: "Dolo 650", price: 34, type: "Pain relief", rx: false, color: "orange", image_url: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&auto=format&fit=crop&q=80", packaging_type: "Blister Strip of 15 Tablets" });
-        addToCart(4, { id: 4, name: "Amoxicillin 500mg", brand: "Mox 500", price: 133, type: "Antibiotic", rx: true, color: "green", image_url: "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=300&auto=format&fit=crop&q=80", packaging_type: "Strip of 10 Capsules" });
+      if (cart.length === 0 && analysis?.recommended_otc && analysis.recommended_otc.length > 0) {
+        analysis.recommended_otc.forEach((item, idx) => {
+          const medId = item.id || (idx + 1);
+          addToCart(medId, {
+            id: medId,
+            name: item.name,
+            brand: item.brand || item.name,
+            price: item.price || 40,
+            type: item.type,
+            rx: item.requires_rx,
+            color: "blue",
+            image_url: item.image_url,
+            packaging_type: item.packaging_type,
+          });
+        });
       }
       await placeOrder("COD", user?.address || undefined, uploadedFileName || "Prescription Document");
       alert("Prescription order submitted to your assigned pharmacy for verification. You can track its live progress in My Orders!");

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = "MediMall <onboarding@resend.dev>"
     frontend_url: str = "http://localhost:3000"
+    gemini_api_key: str = ""
+    openai_api_key: str = ""
 
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
