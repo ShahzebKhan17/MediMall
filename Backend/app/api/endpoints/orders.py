@@ -25,25 +25,10 @@ from app import schemas
 router = APIRouter()
 
 
-def get_assigned_pharmacy(db: Session, patient_lat: float, patient_lng: float) -> User:
+def get_assigned_pharmacy(db: Session, patient_lat: float, patient_lng: float) -> Optional[User]:
     pharmacies = db.query(User).filter(User.role == "pharmacy").all()
     if not pharmacies:
-        # Create default fallback pharmacy if none exists
-        default_pharm = User(
-            email="pharmacy@medimall.in",
-            hashed_password=security.get_password_hash("securepassword"),
-            name="Care & Cure Pharmacy",
-            role="pharmacy",
-            medical_license="DL-KA-BNG-2025-0042",
-            address="100 Feet Road, Indiranagar, Bengaluru, Karnataka 560038",
-            phone="+919795406782",
-            latitude=12.9716,
-            longitude=77.5946,
-        )
-        db.add(default_pharm)
-        db.commit()
-        db.refresh(default_pharm)
-        return default_pharm
+        return None
 
     pharmacy_distances = []
     for pharm in pharmacies:
@@ -86,7 +71,7 @@ def place_order(
         )
 
     total = 0
-    has_rx = bool(order_in.prescription_name)
+    has_rx = False
     items_to_create = []
 
     # Calculate price dynamically and check prescriptions
@@ -119,6 +104,11 @@ def place_order(
     patient_lat = user.latitude if user.latitude is not None else 12.9716
     patient_lng = user.longitude if user.longitude is not None else 77.5946
     assigned_pharmacy = get_assigned_pharmacy(db, patient_lat, patient_lng)
+    if not assigned_pharmacy:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No registered pharmacy partners are currently available in your service area. Please register a pharmacy partner or try again shortly.",
+        )
 
     # Create Order
     new_order = Order(
@@ -410,6 +400,11 @@ def verify_razorpay_payment(
     patient_lat = user.latitude if user.latitude is not None else 12.9716
     patient_lng = user.longitude if user.longitude is not None else 77.5946
     assigned_pharmacy = get_assigned_pharmacy(db, patient_lat, patient_lng)
+    if not assigned_pharmacy:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No registered pharmacy partners are currently available in your service area. Please register a pharmacy partner or try again shortly.",
+        )
 
     status_str = "Review" if has_rx else "Confirmed"
 

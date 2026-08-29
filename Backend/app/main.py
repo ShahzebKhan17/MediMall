@@ -60,27 +60,6 @@ async def lifespan(app: FastAPI):
                     db_med.image_url = med.get("image_url")
                 if not db_med.packaging_type:
                     db_med.packaging_type = med.get("packaging_type")
-        
-        # 2. Ensure at least one default active pharmacy exists for hyperlocal order routing
-        default_pharmacy = db.query(User).filter(User.role == "pharmacy").first()
-        if not default_pharmacy:
-            pharmacy_user = User(
-                email="pharmacy@medimall.in",
-                hashed_password=security.get_password_hash("securepassword"),
-                name="Care & Cure Pharmacy",
-                role="pharmacy",
-                medical_license="DL-KA-BNG-2025-0042",
-                address="100 Feet Road, Indiranagar, Bengaluru, Karnataka 560038",
-                phone="+919795406782",
-                latitude=12.9716,
-                longitude=77.5946,
-                is_email_verified=True,
-            )
-            db.add(pharmacy_user)
-            logger.info("Initialized default pharmacy profile: %s", pharmacy_user.name)
-        else:
-            if not default_pharmacy.is_email_verified:
-                default_pharmacy.is_email_verified = True
 
         db.commit()
     except Exception as err:
