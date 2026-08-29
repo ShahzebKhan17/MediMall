@@ -1,10 +1,23 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, FileUp, Globe2, Info, Loader2, MapPin, MessageCircleHeart, Mic, Moon, Pill, Plus, ShieldAlert, ShieldCheck, Sparkles, Sun, UploadCloud } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronUp, FileUp, Globe2, Info, Loader2, MapPin, MessageCircleHeart, Mic, MicOff, Moon, Pill, Plus, ShieldAlert, ShieldCheck, Sparkles, Sun, UploadCloud, Volume2 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAppContext } from "../context/AppContext";
 import { api } from "../../lib/api";
+
+const INDIAN_LANGUAGES = [
+  { code: "en-IN", name: "English", label: "English" },
+  { code: "hi-IN", name: "Hindi", label: "हिन्दी (Hindi)" },
+  { code: "kn-IN", name: "Kannada", label: "ಕನ್ನಡ (Kannada)" },
+  { code: "ta-IN", name: "Tamil", label: "தமிழ் (Tamil)" },
+  { code: "te-IN", name: "Telugu", label: "తెలుగు (Telugu)" },
+  { code: "bn-IN", name: "Bengali", label: "বাংলা (Bengali)" },
+  { code: "mr-IN", name: "Marathi", label: "मराठी (Marathi)" },
+  { code: "gu-IN", name: "Gujarati", label: "ગુજરાતી (Gujarati)" },
+  { code: "ml-IN", name: "Malayalam", label: "മലയാളം (Malayalam)" },
+  { code: "pa-IN", name: "Punjabi", label: "ਪੰਜਾਬੀ (Punjabi)" },
+];
 
 interface AIAnalysis {
   summary: string;
@@ -32,7 +45,12 @@ export default function MediAssistPage() {
 
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"start" | "review" | "prescription_preview">("start");
+  const [selectedLang, setSelectedLang] = useState(INDIAN_LANGUAGES[0]);
+  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [speechNotice, setSpeechNotice] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
@@ -45,12 +63,104 @@ export default function MediAssistPage() {
   const homeHref = user ? (role === "pharmacy" ? "/shopkeeper/dashboard" : "/user/dashboard") : "/";
   const dashboardHref = user ? (role === "pharmacy" ? "/shopkeeper/dashboard" : "/user/dashboard") : "/login";
 
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+    };
+  }, []);
+
+  const toggleRecording = () => {
+    if (recording) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.warn("Speech stop error:", e);
+        }
+      }
+      setRecording(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setSpeechNotice("Speech recognition is not supported on this browser. Please type your symptoms.");
+      setTimeout(() => setSpeechNotice(null), 5000);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = selectedLang.code;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        setRecording(true);
+        setSpeechNotice(null);
+      };
+
+      recognition.onresult = (event: any) => {
+        let finalTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + " ";
+          }
+        }
+
+        if (finalTranscript) {
+          setText((prev) => {
+            const combined = prev.trim() ? `${prev.trim()} ${finalTranscript.trim()}` : finalTranscript.trim();
+            return combined.slice(0, 500);
+          });
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
+        if (event.error === "not-allowed" || event.error === "permission-denied") {
+          setSpeechNotice("Microphone permission was denied. Please allow microphone access in your browser.");
+        } else if (event.error !== "no-speech") {
+          setSpeechNotice(`Speech error: ${event.error}. Please try again or type directly.`);
+        }
+        setRecording(false);
+        setTimeout(() => setSpeechNotice(null), 6000);
+      };
+
+      recognition.onend = () => {
+        setRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err: any) {
+      console.error("Speech recognition start failed:", err);
+      setRecording(false);
+      setSpeechNotice("Could not start microphone. Please check browser permissions.");
+      setTimeout(() => setSpeechNotice(null), 5000);
+    }
+  };
+
   const analyse = async () => {
     if (!text.trim()) return;
+    if (recording && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+      setRecording(false);
+    }
     setIsAnalysing(true);
     setApiError(null);
     try {
-      const data = await api.aiDoctor.analyze(text);
+      const data = await api.aiDoctor.analyze(text, selectedLang.name);
       setAnalysis(data as unknown as AIAnalysis);
       setMode("review");
     } catch (e: any) {
@@ -203,20 +313,123 @@ export default function MediAssistPage() {
 
         {mode === "start" && (
           <section className="assist-panel">
-            <div className="language">
+            <div className="language" style={{ position: "relative" }}>
               <Globe2 size={17}/>
               <span>Language</span>
-              <button>English <ChevronDown size={13}/></button>
-              <small>You can type or speak in any language.</small>
+              <button
+                type="button"
+                onClick={() => setLangDropdownOpen(!langDropdownOpen)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                {selectedLang.label} {langDropdownOpen ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}
+              </button>
+              <small>Type or speak in your preferred Indian language.</small>
+
+              {langDropdownOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: "20px",
+                    zIndex: 50,
+                    marginTop: "6px",
+                    background: dark ? "#16342e" : "#ffffff",
+                    border: "1px solid #dcefe5",
+                    borderRadius: "10px",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                    padding: "6px",
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: "4px",
+                    minWidth: "280px",
+                  }}
+                >
+                  {INDIAN_LANGUAGES.map((lang) => {
+                    const isSelected = selectedLang.code === lang.code;
+                    return (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        onClick={() => {
+                          setSelectedLang(lang);
+                          setLangDropdownOpen(false);
+                          if (recording && recognitionRef.current) {
+                            try {
+                              recognitionRef.current.stop();
+                            } catch {}
+                            setRecording(false);
+                          }
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 10px",
+                          borderRadius: "6px",
+                          border: "none",
+                          background: isSelected ? (dark ? "#1f4a3e" : "#e4f4ec") : "transparent",
+                          color: isSelected ? "#227f5e" : (dark ? "#fff" : "#16342e"),
+                          fontSize: "12px",
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        <span>{lang.label}</span>
+                        {isSelected && <Check size={14} color="#227f5e" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
+
+            {speechNotice && (
+              <div
+                style={{
+                  background: "#fffbe6",
+                  border: "1px solid #ffe58f",
+                  borderRadius: "8px",
+                  padding: "10px 14px",
+                  fontSize: "12px",
+                  color: "#d48806",
+                  margin: "8px 0",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <Info size={16} /> {speechNotice}
+              </div>
+            )}
+
             <textarea
               value={text}
               onChange={e => setText(e.target.value)}
-              placeholder="For example: I have a headache, runny nose, and mild fever since yesterday..."
+              placeholder={`For example: I have a headache, runny nose, and mild fever since yesterday... (Type or speak in ${selectedLang.name})`}
             />
             <div className="input-actions">
-              <button className={recording ? "recording" : ""} onClick={() => setRecording(!recording)}>
-                <Mic size={17}/>{recording ? "Listening…" : "Speak instead"}
+              <button
+                type="button"
+                className={recording ? "recording active" : ""}
+                onClick={toggleRecording}
+                style={{
+                  background: recording ? "#fee2e2" : undefined,
+                  color: recording ? "#dc2626" : undefined,
+                  borderColor: recording ? "#fca5a5" : undefined,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <Mic size={17} className={recording ? "spin" : ""} />
+                {recording ? `Listening in ${selectedLang.name}… (Click to stop)` : `Speak in ${selectedLang.name}`}
               </button>
               <span>{text.length}/500</span>
             </div>

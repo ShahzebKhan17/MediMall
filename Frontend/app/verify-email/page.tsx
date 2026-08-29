@@ -7,9 +7,10 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
+  HelpCircle,
   Home,
+  Info,
   Loader2,
-  Lock,
   Mail,
   Moon,
   RefreshCw,
@@ -28,19 +29,44 @@ function VerifyEmailContent() {
 
   const token = searchParams.get("token");
 
-  const [status, setStatus] = useState<"loading" | "success" | "expired" | "error">(
-    token ? "loading" : "error"
+  const [status, setStatus] = useState<"loading" | "success" | "already_verified" | "expired" | "error">(
+    token ? "loading" : user?.is_email_verified ? "already_verified" : "error"
   );
   const [message, setMessage] = useState<string>("");
   const [emailInput, setEmailInput] = useState<string>(user?.email || "");
   const [resending, setResending] = useState<boolean>(false);
   const [resendSuccess, setResendSuccess] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
 
+  // Sync user's email if available
+  useEffect(() => {
+    if (user?.email && !emailInput) {
+      setEmailInput(user.email);
+    }
+    if (!token && user?.is_email_verified) {
+      setStatus("already_verified");
+    }
+  }, [user, token]);
+
+  // Cooldown countdown timer
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
+
+  // Perform token verification on mount
   useEffect(() => {
     if (!token) {
-      setStatus("error");
-      setMessage("No verification token was provided in the link.");
+      if (user?.is_email_verified) {
+        setStatus("already_verified");
+      } else {
+        setStatus("error");
+        setMessage("No verification token was provided in the link.");
+      }
       return;
     }
 
@@ -50,8 +76,13 @@ function VerifyEmailContent() {
       try {
         const res = await api.auth.verifyEmail(token as string);
         if (isMounted) {
-          setStatus("success");
-          setMessage(res.message || "Your email address has been verified successfully!");
+          if (res.message?.toLowerCase().includes("already verified")) {
+            setStatus("already_verified");
+            setMessage(res.message);
+          } else {
+            setStatus("success");
+            setMessage(res.message || "Your email address has been verified successfully!");
+          }
         }
       } catch (err: any) {
         if (!isMounted) return;
@@ -59,6 +90,9 @@ function VerifyEmailContent() {
         if (errMsg.toLowerCase().includes("expired")) {
           setStatus("expired");
           setMessage("This verification link has expired (validity is 24 hours).");
+        } else if (errMsg.toLowerCase().includes("already verified")) {
+          setStatus("already_verified");
+          setMessage("Your email address is already verified.");
         } else {
           setStatus("error");
           setMessage(errMsg);
@@ -71,10 +105,12 @@ function VerifyEmailContent() {
     return () => {
       isMounted = false;
     };
-  }, [token]);
+  }, [token, user]);
 
   const handleResend = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (cooldownSeconds > 0) return;
+
     setResendError(null);
     setResendSuccess(null);
 
@@ -87,9 +123,29 @@ function VerifyEmailContent() {
     setResending(true);
     try {
       const res = await api.auth.resendVerification(targetEmail);
-      setResendSuccess(res.message || `A fresh verification link has been sent to ${targetEmail}.`);
+      if (res.already_verified || res.status === "already_verified" || res.message?.toLowerCase().includes("already verified")) {
+        setStatus("already_verified");
+        setMessage(res.message || `The email address ${targetEmail} is already verified.`);
+        setResendSuccess(null);
+      } else {
+        setResendSuccess(res.message || `A fresh verification link has been sent to ${targetEmail}.`);
+        setCooldownSeconds(60);
+      }
     } catch (err: any) {
-      setResendError(err?.message || "Failed to resend verification link. Please check your email.");
+      const errMsg = err?.message || "Failed to resend verification link. Please check your email.";
+      if (errMsg.toLowerCase().includes("already verified")) {
+        setStatus("already_verified");
+        setMessage(`The email address ${targetEmail} is already verified.`);
+      } else {
+        setResendError(errMsg);
+        // If 429 rate limited, extract remaining seconds if present or set 60s
+        const match = errMsg.match(/(\d+)\s*seconds/i);
+        if (match && match[1]) {
+          setCooldownSeconds(parseInt(match[1], 10));
+        } else if (errMsg.toLowerCase().includes("wait") || errMsg.toLowerCase().includes("too many requests")) {
+          setCooldownSeconds(60);
+        }
+      }
     } finally {
       setResending(false);
     }
@@ -111,7 +167,7 @@ function VerifyEmailContent() {
         </button>
       </header>
 
-      <section className="auth-card" style={{ maxWidth: "480px", textAlign: "center", padding: "36px 32px" }}>
+      <section className="auth-card" style={{ maxWidth: "500px", textAlign: "center", padding: "36px 32px" }}>
         
         {/* State: LOADING */}
         {status === "loading" && (
@@ -166,7 +222,7 @@ function VerifyEmailContent() {
               Email Verified Successfully!
             </h1>
             <p style={{ fontSize: "14px", color: dark ? "#a6c7bb" : "#637a70", lineHeight: 1.5, marginBottom: "28px" }}>
-              {message} Your account is now fully verified to place medicine orders, manage prescriptions, and receive fast deliveries.
+              {message || "Your email address has been verified successfully."} Your account is now active to place medicine orders, manage prescriptions, and receive fast deliveries.
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -176,6 +232,60 @@ function VerifyEmailContent() {
                 style={{ width: "100%" }}
               >
                 {user ? "Continue to Dashboard" : "Sign In to Your Account"} <ArrowRight size={17} />
+              </button>
+              <a
+                href="/"
+                style={{
+                  fontSize: "13px",
+                  color: dark ? "#a6c7bb" : "#637a70",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  padding: "8px",
+                }}
+              >
+                <Home size={14} /> Back to Homepage
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* State: ALREADY VERIFIED */}
+        {status === "already_verified" && (
+          <div>
+            <div
+              style={{
+                width: "64px",
+                height: "64px",
+                borderRadius: "50%",
+                background: "#e2f4eb",
+                color: "#227f5e",
+                display: "grid",
+                placeItems: "center",
+                margin: "0 auto 20px",
+              }}
+            >
+              <CheckCircle2 size={36} color="#227f5e" />
+            </div>
+            <p style={{ letterSpacing: "1px", textTransform: "uppercase", fontSize: "11px", fontWeight: 700, color: "#227f5e", margin: "0 0 8px" }}>
+              ACCOUNT ACTIVE
+            </p>
+            <h1 style={{ fontSize: "22px", margin: "0 0 10px", color: dark ? "#fff" : "#16342e" }}>
+              Email Already Verified
+            </h1>
+            <p style={{ fontSize: "14px", color: dark ? "#a6c7bb" : "#637a70", lineHeight: 1.5, marginBottom: "24px" }}>
+              {message || "This email address is already verified. Email verification is a one-time process and your account is in good standing."}
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <button
+                className="auth-submit"
+                onClick={() => router.push(user ? getDashboardPath() : "/login")}
+                style={{ width: "100%" }}
+              >
+                {user ? "Go to My Dashboard" : "Sign In to MediMall"} <ArrowRight size={17} />
               </button>
               <a
                 href="/"
@@ -229,7 +339,7 @@ function VerifyEmailContent() {
                   background: "#f6ffed",
                   border: "1px solid #b7eb8f",
                   borderRadius: "8px",
-                  padding: "10px 14px",
+                  padding: "12px 14px",
                   color: "#389e0d",
                   fontSize: "13px",
                   marginBottom: "16px",
@@ -246,7 +356,7 @@ function VerifyEmailContent() {
                   background: "#fff1f0",
                   border: "1px solid #ffa39e",
                   borderRadius: "8px",
-                  padding: "10px 14px",
+                  padding: "12px 14px",
                   color: "#cf1322",
                   fontSize: "13px",
                   marginBottom: "16px",
@@ -279,10 +389,36 @@ function VerifyEmailContent() {
                   boxSizing: "border-box",
                 }}
               />
-              <button className="auth-submit" disabled={resending} type="submit" style={{ width: "100%" }}>
-                <Mail size={16} /> {resending ? "Sending New Link..." : "Resend Verification Email"}
+              <button
+                className="auth-submit"
+                disabled={resending || cooldownSeconds > 0}
+                type="submit"
+                style={{ width: "100%", opacity: cooldownSeconds > 0 ? 0.7 : 1 }}
+              >
+                <Mail size={16} />{" "}
+                {resending
+                  ? "Sending New Link..."
+                  : cooldownSeconds > 0
+                  ? `Wait ${cooldownSeconds}s before resending`
+                  : "Resend Verification Email"}
               </button>
             </form>
+
+            {/* Helpful Inbox Tip */}
+            <div
+              style={{
+                background: dark ? "#112e27" : "#f0f8f4",
+                border: "1px solid #cce8db",
+                borderRadius: "8px",
+                padding: "10px 12px",
+                fontSize: "12px",
+                color: dark ? "#a3c8bc" : "#436859",
+                textAlign: "left",
+                marginBottom: "16px",
+              }}
+            >
+              💡 <strong>Can&apos;t find the email?</strong> Please check your <strong>Spam</strong>, <strong>Junk</strong>, or <strong>Promotions</strong> folder.
+            </div>
 
             <a
               href="/login"
@@ -316,13 +452,13 @@ function VerifyEmailContent() {
               <AlertCircle size={36} color="#cf1322" />
             </div>
             <p style={{ letterSpacing: "1px", textTransform: "uppercase", fontSize: "11px", fontWeight: 700, color: "#cf1322", margin: "0 0 8px" }}>
-              VERIFICATION FAILED
+              VERIFICATION NOTICE
             </p>
             <h1 style={{ fontSize: "22px", margin: "0 0 10px", color: dark ? "#fff" : "#16342e" }}>
-              Invalid Verification Link
+              {message?.includes("No verification token") ? "Verify Your Email Address" : "Invalid Verification Link"}
             </h1>
-            <p style={{ fontSize: "14px", color: dark ? "#a6c7bb" : "#637a70", lineHeight: 1.5, marginBottom: "24px" }}>
-              {message || "The verification token is invalid, unrecognized, or has already been used."}
+            <p style={{ fontSize: "14px", color: dark ? "#a6c7bb" : "#637a70", lineHeight: 1.5, marginBottom: "20px" }}>
+              {message || "The verification token is invalid or has already been used."}
             </p>
 
             {resendSuccess && (
@@ -331,7 +467,7 @@ function VerifyEmailContent() {
                   background: "#f6ffed",
                   border: "1px solid #b7eb8f",
                   borderRadius: "8px",
-                  padding: "10px 14px",
+                  padding: "12px 14px",
                   color: "#389e0d",
                   fontSize: "13px",
                   marginBottom: "16px",
@@ -348,7 +484,7 @@ function VerifyEmailContent() {
                   background: "#fff1f0",
                   border: "1px solid #ffa39e",
                   borderRadius: "8px",
-                  padding: "10px 14px",
+                  padding: "12px 14px",
                   color: "#cf1322",
                   fontSize: "13px",
                   marginBottom: "16px",
@@ -361,7 +497,7 @@ function VerifyEmailContent() {
 
             <form onSubmit={handleResend} style={{ textAlign: "left", marginBottom: "16px" }}>
               <label style={{ fontSize: "12px", color: dark ? "#a6c7bb" : "#4e6a5f", display: "block", marginBottom: "6px" }}>
-                Request new link for your email
+                Request link for your email
               </label>
               <input
                 type="email"
@@ -381,10 +517,36 @@ function VerifyEmailContent() {
                   boxSizing: "border-box",
                 }}
               />
-              <button className="auth-submit" disabled={resending} type="submit" style={{ width: "100%" }}>
-                <RefreshCw size={16} /> {resending ? "Sending..." : "Request New Verification Email"}
+              <button
+                className="auth-submit"
+                disabled={resending || cooldownSeconds > 0}
+                type="submit"
+                style={{ width: "100%", opacity: cooldownSeconds > 0 ? 0.7 : 1 }}
+              >
+                <RefreshCw size={16} className={resending ? "spin" : ""} />{" "}
+                {resending
+                  ? "Sending..."
+                  : cooldownSeconds > 0
+                  ? `Please wait (${cooldownSeconds}s)`
+                  : "Request Verification Email"}
               </button>
             </form>
+
+            {/* Helpful Inbox Tip */}
+            <div
+              style={{
+                background: dark ? "#112e27" : "#f0f8f4",
+                border: "1px solid #cce8db",
+                borderRadius: "8px",
+                padding: "10px 12px",
+                fontSize: "12px",
+                color: dark ? "#a3c8bc" : "#436859",
+                textAlign: "left",
+                marginBottom: "16px",
+              }}
+            >
+              💡 <strong>Email not showing in Inbox?</strong> Automated emails often arrive in your <strong>Spam</strong>, <strong>Junk</strong>, or <strong>Promotions</strong> folder.
+            </div>
 
             <a
               href="/login"

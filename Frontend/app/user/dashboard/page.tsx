@@ -140,7 +140,7 @@ export default function UserDashboard() {
         </button>
       </div>
 
-      <div className="action-grid">
+      <div className="action-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
         <button className="dash-action orange" onClick={() => location.href = "/medicines"}>
           <span><Search /></span>
           <div>
@@ -153,13 +153,6 @@ export default function UserDashboard() {
           <div>
             <b>Ask MediAssist</b>
             <small>Describe symptoms in any language</small>
-          </div>
-        </button>
-        <button className="dash-action green" onClick={() => location.href = "/user/prescriptions"}>
-          <span><FileText /></span>
-          <div>
-            <b>Upload prescription</b>
-            <small>Our pharmacist will check it</small>
           </div>
         </button>
       </div>

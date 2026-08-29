@@ -96,9 +96,29 @@ export const api = {
       return apiFetch<{
         status: string;
         message: string;
+        already_verified?: boolean;
+        delivery_status?: string;
       }>("/auth/resend-verification", {
         method: "POST",
         body: JSON.stringify({ email }),
+      });
+    },
+    forgotPassword: async (email: string) => {
+      return apiFetch<{
+        status: string;
+        message: string;
+      }>("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+    },
+    resetPassword: async (token: string, newPassword: string) => {
+      return apiFetch<{
+        status: string;
+        message: string;
+      }>("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token, new_password: newPassword }),
       });
     },
     logout: async () => {

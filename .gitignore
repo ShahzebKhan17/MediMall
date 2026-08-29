@@ -38,3 +38,6 @@ Thumbs.db
 # Local upload files
 Backend/app/uploads/
 
+# TypeScript build info
+*.tsbuildinfo
+

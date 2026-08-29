@@ -43,6 +43,12 @@ async def lifespan(app: FastAPI):
                 if "email_verification_expires_at" not in existing_cols:
                     conn.execute(text("ALTER TABLE users ADD COLUMN email_verification_expires_at TIMESTAMP" if engine.name == "sqlite" else "ALTER TABLE users ADD COLUMN email_verification_expires_at TIMESTAMP WITH TIME ZONE"))
                     conn.commit()
+                if "password_reset_token" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_token VARCHAR(255)"))
+                    conn.commit()
+                if "password_reset_expires_at" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_expires_at TIMESTAMP" if engine.name == "sqlite" else "ALTER TABLE users ADD COLUMN password_reset_expires_at TIMESTAMP WITH TIME ZONE"))
+                    conn.commit()
     except Exception as err:
         logger.error("Database table initialization/migration error: %s", err)
 

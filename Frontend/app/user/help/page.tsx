@@ -65,7 +65,7 @@ export default function PatientHelpCenterPage() {
       </div>
 
       {/* Support Channels Banner */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px", marginTop: "24px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px", marginTop: "24px" }}>
         <div className="card" style={{ display: "flex", alignItems: "center", gap: "14px", padding: "18px" }}>
           <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#e2f4eb", color: "#227f5e", display: "grid", placeItems: "center" }}>
             <Phone size={20} />
@@ -78,24 +78,19 @@ export default function PatientHelpCenterPage() {
         </div>
 
         <div className="card" style={{ display: "flex", alignItems: "center", gap: "14px", padding: "18px" }}>
-          <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#e0f2fe", color: "#0284c7", display: "grid", placeItems: "center" }}>
-            <MessageSquare size={20} />
-          </div>
-          <div>
-            <b style={{ fontSize: "14px", display: "block" }}>WhatsApp Support</b>
-            <span style={{ fontSize: "12px", color: "#0284c7", fontWeight: 600 }}>Chat with Pharmacist</span>
-            <small style={{ display: "block", color: "#82918b", fontSize: "10px" }}>Average reply: 2 mins</small>
-          </div>
-        </div>
-
-        <div className="card" style={{ display: "flex", alignItems: "center", gap: "14px", padding: "18px" }}>
           <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "#fef3c7", color: "#d97706", display: "grid", placeItems: "center" }}>
             <Mail size={20} />
           </div>
           <div>
             <b style={{ fontSize: "14px", display: "block" }}>Email Medical Desk</b>
-            <span style={{ fontSize: "12px", color: "#d97706", fontWeight: 600 }}>support@medimall.in</span>
-            <small style={{ display: "block", color: "#82918b", fontSize: "10px" }}>Resolution within 4 hrs</small>
+            <a
+              href="mailto:support@medimall.in?subject=MediMall%20Patient%20Support%20Request"
+              style={{ fontSize: "12px", color: "#d97706", fontWeight: 600, textDecoration: "underline", display: "inline-block" }}
+              title="Click to send an email to MediMall Support"
+            >
+              support@medimall.in
+            </a>
+            <small style={{ display: "block", color: "#82918b", fontSize: "10px" }}>Resolution within 4 hrs &middot; Direct mail support</small>
           </div>
         </div>
       </div>

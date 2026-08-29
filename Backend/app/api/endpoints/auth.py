@@ -49,7 +49,7 @@ def register(user_in: schemas.UserCreate, response: Response, db: Session = Depe
     lng = user_in.longitude if user_in.longitude is not None else (77.5946 + random.uniform(-0.015, 0.015))
 
     # Generate cryptographically secure verification token (valid for 24 hours)
-    raw_token, hashed_token = email_service.generate_verification_token()
+    user_temp_id = security.generate_uuid() if hasattr(security, "generate_uuid") else None
     verification_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
 
     new_user = User(
@@ -67,12 +67,16 @@ def register(user_in: schemas.UserCreate, response: Response, db: Session = Depe
         latitude=lat,
         longitude=lng,
         is_email_verified=False,
-        email_verification_token=hashed_token,
+        email_verification_token=None,
         email_verification_expires_at=verification_expires_at,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    raw_token, hashed_token = email_service.generate_verification_token(user_id=new_user.id)
+    new_user.email_verification_token = hashed_token
+    db.commit()
 
     # Dispatch branded verification email via Resend
     email_service.send_verification_email(
@@ -155,8 +159,31 @@ def verify_email(payload: schemas.VerifyEmailRequest, db: Session = Depends(get_
             detail="Verification token is required.",
         )
 
-    hashed_token = email_service.hash_token(raw_token)
-    user = db.query(User).filter(User.email_verification_token == hashed_token).first()
+    user: Optional[User] = None
+
+    # Handle user_id-prefixed tokens (e.g. "<user_id>.<random_secret>")
+    if "." in raw_token:
+        user_id_part, secret_part = raw_token.split(".", 1)
+        user = db.query(User).filter(User.id == user_id_part).first()
+        if user:
+            if user.is_email_verified:
+                return schemas.VerifyEmailResponse(
+                    status="success",
+                    message="Your email address is already verified.",
+                    email=user.email,
+                    is_verified=True,
+                )
+            # Verify secret hash
+            hashed_secret = email_service.hash_token(secret_part)
+            if user.email_verification_token != hashed_secret:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid or expired verification token. Please request a new verification email.",
+                )
+    else:
+        # Fallback to direct token hash lookup
+        hashed_token = email_service.hash_token(raw_token)
+        user = db.query(User).filter(User.email_verification_token == hashed_token).first()
 
     if not user:
         raise HTTPException(
@@ -166,7 +193,6 @@ def verify_email(payload: schemas.VerifyEmailRequest, db: Session = Depends(get_
 
     # Check expiration (24 hours)
     now = datetime.now(timezone.utc)
-    # Handle both timezone-aware and naive timestamps from SQLite/Postgres
     if user.email_verification_expires_at:
         exp = user.email_verification_expires_at
         if exp.tzinfo is None:
@@ -186,7 +212,7 @@ def verify_email(payload: schemas.VerifyEmailRequest, db: Session = Depends(get_
             is_verified=True,
         )
 
-    # Set as verified and clear tokens immediately
+    # Set as verified and clear tokens immediately (one-time process)
     user.is_email_verified = True
     user.email_verification_token = None
     user.email_verification_expires_at = None
@@ -213,10 +239,12 @@ def resend_verification(payload: schemas.ResendVerificationRequest, db: Session 
             detail="No account found with this email address.",
         )
 
+    # One-time verification rule: If already verified, never send another verification email
     if user.is_email_verified:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This email address is already verified.",
+        return schemas.ResendVerificationResponse(
+            status="already_verified",
+            message=f"The email address {user.email} is already verified. No further verification emails are needed.",
+            already_verified=True,
         )
 
     # Rate limiting protection: 60-second debounce between requests
@@ -225,30 +253,147 @@ def resend_verification(payload: schemas.ResendVerificationRequest, db: Session 
         exp = user.email_verification_expires_at
         if exp.tzinfo is None:
             exp = exp.replace(tzinfo=timezone.utc)
-        # 24h expiration was set; if expires_at - now > 23 hours 59 mins, wait 60s
+        # 24h expiration was set; if expires_at - now > 23 hours 59 mins, wait cooldown
         time_left = exp - now
         if time_left > timedelta(hours=23, minutes=59):
+            elapsed_sec = int((timedelta(hours=24) - time_left).total_seconds())
+            wait_sec = max(1, 60 - elapsed_sec)
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Please wait 60 seconds before requesting another verification email.",
+                detail=f"Please wait {wait_sec} seconds before requesting another verification email.",
             )
 
-    # Generate fresh 24h token
-    raw_token, hashed_token = email_service.generate_verification_token()
+    # Generate fresh 24h token with user id
+    raw_token, hashed_token = email_service.generate_verification_token(user_id=user.id)
     user.email_verification_token = hashed_token
     user.email_verification_expires_at = now + timedelta(hours=24)
     db.commit()
 
     # Dispatch email
-    email_service.send_verification_email(
+    sent = email_service.send_verification_email(
         to_email=user.email,
         user_name=user.name,
         raw_token=raw_token,
     )
 
-    return schemas.ResendVerificationResponse(
+    if sent:
+        return schemas.ResendVerificationResponse(
+            status="success",
+            message=f"A fresh verification email has been sent to {user.email}. Please check your inbox and spam folder.",
+            already_verified=False,
+            delivery_status="sent",
+        )
+    else:
+        return schemas.ResendVerificationResponse(
+            status="warning",
+            message=f"Verification link generated for {user.email}. If using Resend sandbox mode, ensure the recipient email matches your Resend account or verify your domain.",
+            already_verified=False,
+            delivery_status="logged_fallback",
+        )
+
+
+@router.post("/forgot-password", response_model=schemas.ForgotPasswordResponse)
+def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
+    email_clean = payload.email.strip().lower()
+    user = db.query(User).filter(User.email == email_clean).first()
+
+    # For privacy/security, if user does not exist, return standard generic message
+    if not user:
+        return schemas.ForgotPasswordResponse(
+            status="success",
+            message="If an account exists with this email, a password reset link has been dispatched to your inbox.",
+        )
+
+    # Rate limiting: 60s cooldown if a reset request was sent in the last 60s
+    now = datetime.now(timezone.utc)
+    if user.password_reset_expires_at:
+        exp = user.password_reset_expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        # Token validity is 1 hour; if exp - now > 59 minutes, wait 60s
+        time_left = exp - now
+        if time_left > timedelta(minutes=59):
+            elapsed_sec = int((timedelta(hours=1) - time_left).total_seconds())
+            wait_sec = max(1, 60 - elapsed_sec)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Please wait {wait_sec} seconds before requesting another password reset email.",
+            )
+
+    # Generate fresh 1-hour reset token with user_id
+    raw_token, hashed_token = email_service.generate_verification_token(user_id=user.id)
+    user.password_reset_token = hashed_token
+    user.password_reset_expires_at = now + timedelta(hours=1)
+    db.commit()
+
+    # Dispatch email
+    email_service.send_password_reset_email(
+        to_email=user.email,
+        user_name=user.name,
+        raw_token=raw_token,
+    )
+
+    return schemas.ForgotPasswordResponse(
         status="success",
-        message=f"A fresh verification email has been sent to {user.email}.",
+        message=f"A password reset link has been sent to {user.email}. Please check your inbox and spam folder (valid for 1 hour).",
+    )
+
+
+@router.post("/reset-password", response_model=schemas.ResetPasswordResponse)
+def reset_password(payload: schemas.ResetPasswordRequest, db: Session = Depends(get_db)):
+    raw_token = payload.token.strip()
+    if not raw_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password reset token is required.",
+        )
+
+    user: Optional[User] = None
+
+    if "." in raw_token:
+        user_id_part, secret_part = raw_token.split(".", 1)
+        user = db.query(User).filter(User.id == user_id_part).first()
+        if user:
+            hashed_secret = email_service.hash_token(secret_part)
+            if user.password_reset_token != hashed_secret:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid or expired password reset link. Please request a new link.",
+                )
+    else:
+        hashed_token = email_service.hash_token(raw_token)
+        user = db.query(User).filter(User.password_reset_token == hashed_token).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset link. Please request a new link.",
+        )
+
+    # Check 1-hour expiration
+    now = datetime.now(timezone.utc)
+    if user.password_reset_expires_at:
+        exp = user.password_reset_expires_at
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if exp < now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This password reset link has expired (1-hour validity limit). Please request a new link.",
+            )
+
+    # Update password and clear reset tokens
+    user.hashed_password = security.get_password_hash(payload.new_password)
+    user.password_reset_token = None
+    user.password_reset_expires_at = None
+    db.commit()
+    db.refresh(user)
+
+    logger.info("Successfully reset password for user %s (%s)", user.email, user.id)
+
+    return schemas.ResetPasswordResponse(
+        status="success",
+        message="Your password has been updated successfully! You can now sign in with your new password.",
     )
 
 

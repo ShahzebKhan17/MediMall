@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import secrets
-from typing import Tuple
+from typing import Optional, Tuple
 
 import resend
 
@@ -11,15 +11,19 @@ logger = logging.getLogger("medimall.email")
 settings = get_settings()
 
 
-def generate_verification_token() -> Tuple[str, str]:
+def generate_verification_token(user_id: Optional[str] = None) -> Tuple[str, str]:
     """
     Generates a cryptographically secure verification token.
     Returns a tuple of (raw_token, hashed_token).
-    - raw_token: sent in the verification email URL to the user.
+    - raw_token: sent in the verification email URL to the user (contains user_id if supplied).
     - hashed_token: stored safely in the database.
     """
-    raw_token = secrets.token_urlsafe(32)
-    hashed_token = hash_token(raw_token)
+    random_secret = secrets.token_urlsafe(32)
+    hashed_token = hash_token(random_secret)
+    if user_id:
+        raw_token = f"{user_id}.{random_secret}"
+    else:
+        raw_token = random_secret
     return raw_token, hashed_token
 
 
@@ -157,5 +161,136 @@ def send_verification_email(to_email: str, user_name: str, raw_token: str) -> bo
         print(f"[MEDIMALL EMAIL SERVICE - RESEND DEV SIMULATION]")
         print(f"To: {to_email} ({user_name})")
         print(f"Verification URL: {verification_url}")
+        print(f"========================================================\n")
+        return True
+
+
+def get_password_reset_email_html(user_name: str, reset_url: str) -> str:
+    """Generates a responsive, branded HTML password reset email template for MediMall."""
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password - MediMall</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4faf6; color: #16342e;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4faf6; padding: 40px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" max-width="560" cellspacing="0" cellpadding="0" border="0" style="max-width: 560px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(22, 52, 46, 0.08); border: 1px solid #dbe6df;">
+          
+          <!-- Header / Brand -->
+          <tr>
+            <td style="background-color: #16342e; padding: 32px 40px; text-align: center;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <span style="font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">
+                      Medi<span style="color: #4cd69a;">Mall</span>
+                    </span>
+                    <p style="margin: 6px 0 0; font-size: 12px; color: #a3c4b8; letter-spacing: 1px; text-transform: uppercase;">Hyperlocal Healthcare &amp; Pharmacy</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body Content -->
+          <tr>
+            <td style="padding: 40px 40px 30px;">
+              <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 700; color: #16342e;">
+                Reset Your Password
+              </h1>
+              <p style="margin: 0 0 20px; font-size: 15px; line-height: 1.6; color: #4e6a5f;">
+                Hello {user_name}, we received a request to reset the password for your MediMall account. Click the button below to choose a new password.
+              </p>
+
+              <!-- CTA Button -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 28px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="{reset_url}" target="_blank" style="display: inline-block; background-color: #227f5e; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; padding: 14px 36px; border-radius: 10px; box-shadow: 0 4px 12px rgba(34, 127, 94, 0.25);">
+                      Reset Password &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="background-color: #f8fcfa; border: 1px solid #e0ede7; border-radius: 10px; padding: 16px; margin: 24px 0 10px;">
+                <p style="margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #227f5e;">
+                  &#9201; Link Expiration Notice
+                </p>
+                <p style="margin: 0; font-size: 13px; color: #5a756b; line-height: 1.4;">
+                  This password reset link is valid for <strong>1 hour</strong>. If you did not request a password reset, you can safely ignore this email — your account remains completely secure.
+                </p>
+              </div>
+
+              <p style="margin: 20px 0 8px; font-size: 12px; color: #82918b;">
+                If the button above doesn't work, copy and paste this link into your browser:
+              </p>
+              <p style="margin: 0; font-size: 12px; word-break: break-all;">
+                <a href="{reset_url}" style="color: #227f5e; text-decoration: underline;">{reset_url}</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fcfa; padding: 24px 40px; border-top: 1px solid #eef4f0; text-align: center;">
+              <p style="margin: 0 0 6px; font-size: 12px; color: #82918b;">
+                MediMall Healthcare &middot; Bangalore, Karnataka, India
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #a4b3ac;">
+                &copy; 2026 MediMall Healthcare Technologies. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
+def send_password_reset_email(to_email: str, user_name: str, raw_token: str) -> bool:
+    """
+    Sends a branded password reset email to the user using Resend.
+    If RESEND_API_KEY is not configured (e.g. local dev), logs the reset link to the console.
+    """
+    base_url = settings.frontend_url.rstrip("/")
+    reset_url = f"{base_url}/reset-password?token={raw_token}"
+    html_content = get_password_reset_email_html(user_name=user_name, reset_url=reset_url)
+
+    api_key = settings.resend_api_key.strip() if settings.resend_api_key else ""
+
+    if api_key:
+        try:
+            resend.api_key = api_key
+            params: resend.Emails.SendParams = {
+                "from": settings.resend_from_email,
+                "to": [to_email],
+                "subject": "Reset your password - MediMall",
+                "html": html_content,
+            }
+            email_response = resend.Emails.send(params)
+            logger.info("Password reset email sent via Resend to %s: ID %s", to_email, email_response.get("id"))
+            return True
+        except Exception as err:
+            logger.error("Failed to send password reset email via Resend to %s: %s", to_email, err)
+            logger.info("[RESEND FALLBACK] Password reset link for %s: %s", to_email, reset_url)
+            return False
+    else:
+        logger.warning(
+            "RESEND_API_KEY is not set. [DEV PASSWORD RESET LINK for %s]: %s",
+            to_email,
+            reset_url,
+        )
+        print(f"\n========================================================")
+        print(f"[MEDIMALL EMAIL SERVICE - PASSWORD RESET DEV SIMULATION]")
+        print(f"To: {to_email} ({user_name})")
+        print(f"Password Reset URL: {reset_url}")
         print(f"========================================================\n")
         return True

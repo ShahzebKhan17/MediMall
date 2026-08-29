@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
@@ -42,6 +42,16 @@ export default function Register() {
   const [registeredSuccess, setRegisteredSuccess] = useState(false);
   const [resendStatus, setResendStatus] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+
+  // Cooldown timer
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSeconds]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -65,6 +75,7 @@ export default function Register() {
         password
       );
       setRegisteredSuccess(true);
+      setCooldownSeconds(60);
     } catch (err: any) {
       console.error("Registration failed:", err);
       setError(err?.message || "Registration failed. Please check your information.");
@@ -74,13 +85,22 @@ export default function Register() {
   };
 
   const handleResend = async () => {
+    if (cooldownSeconds > 0) return;
     setResending(true);
     setResendStatus(null);
     try {
       await resendVerificationEmail(email);
-      setResendStatus("A fresh verification email has been sent!");
+      setResendStatus("A fresh verification email has been sent! Check your inbox & spam folder.");
+      setCooldownSeconds(60);
     } catch (err: any) {
-      setResendStatus(err?.message || "Failed to resend email.");
+      const msg = err?.message || "Failed to resend email.";
+      setResendStatus(msg);
+      const match = msg.match(/(\d+)\s*seconds/i);
+      if (match && match[1]) {
+        setCooldownSeconds(parseInt(match[1], 10));
+      } else if (msg.toLowerCase().includes("wait") || msg.toLowerCase().includes("too many requests")) {
+        setCooldownSeconds(60);
+      }
     } finally {
       setResending(false);
     }
@@ -152,14 +172,15 @@ export default function Register() {
             <button
               type="button"
               onClick={handleResend}
-              disabled={resending}
+              disabled={resending || cooldownSeconds > 0}
               style={{
                 background: "none",
                 border: "none",
                 color: "#227f5e",
                 fontWeight: 600,
                 fontSize: "13px",
-                cursor: "pointer",
+                cursor: cooldownSeconds > 0 ? "not-allowed" : "pointer",
+                opacity: cooldownSeconds > 0 ? 0.65 : 1,
                 padding: "8px",
                 display: "inline-flex",
                 alignItems: "center",
@@ -168,9 +189,17 @@ export default function Register() {
               }}
             >
               <RefreshCw size={14} className={resending ? "spin" : ""} />
-              {resending ? "Resending..." : "Didn't get the email? Resend link"}
+              {resending
+                ? "Resending..."
+                : cooldownSeconds > 0
+                ? `Resend link in ${cooldownSeconds}s`
+                : "Didn't get the email? Resend link"}
             </button>
           </div>
+          
+          <p style={{ margin: "16px 0 0", fontSize: "12px", color: dark ? "#8fa89e" : "#71897d" }}>
+            💡 Tip: Please check your <strong>Spam</strong>, <strong>Junk</strong>, or <strong>Promotions</strong> folder.
+          </p>
         </section>
       ) : (
         <section className="auth-card register-card">

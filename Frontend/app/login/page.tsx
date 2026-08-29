@@ -147,7 +147,7 @@ export default function LoginPage() {
             <label>
               <input type="checkbox" defaultChecked /> Keep me signed in
             </label>
-            <a href="#">Forgot password?</a>
+            <a href="/forgot-password">Forgot password?</a>
           </div>
           <button className="auth-submit" disabled={loading} type="submit">
             {loading ? "Signing in..." : "Sign in"} <ArrowRight size={17} />

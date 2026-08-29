@@ -80,6 +80,27 @@ class ResendVerificationRequest(BaseModel):
 class ResendVerificationResponse(BaseModel):
     status: str = "success"
     message: str
+    already_verified: bool = False
+    delivery_status: Optional[str] = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    status: str = "success"
+    message: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=4)
+
+
+class ResetPasswordResponse(BaseModel):
+    status: str = "success"
+    message: str
 
 
 
