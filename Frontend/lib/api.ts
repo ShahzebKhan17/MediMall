@@ -324,8 +324,13 @@ export const api = {
       payment_method: string;
       address?: string;
       prescription_name?: string;
+      idempotency_key?: string;
       items: Array<{ medicine_id: number; quantity: number }>;
     }) => {
+      const headers: Record<string, string> = {};
+      if (orderData.idempotency_key) {
+        headers["Idempotency-Key"] = orderData.idempotency_key;
+      }
       return apiFetch<{
         id: string;
         user_id: string;
@@ -333,9 +338,11 @@ export const api = {
         total: number;
         address: string;
         payment_method: string;
+        idempotency_key?: string;
         items: Array<any>;
       }>("/orders/", {
         method: "POST",
+        headers,
         body: JSON.stringify(orderData),
       });
     },
@@ -372,6 +379,7 @@ export const api = {
       payment_method?: string;
       address?: string;
       prescription_name?: string;
+      idempotency_key?: string;
       items: Array<{ medicine_id: number; quantity: number }>;
     }) => {
       return apiFetch<{
@@ -381,6 +389,8 @@ export const api = {
         total: number;
         address: string;
         payment_method: string;
+        payment_id?: string;
+        idempotency_key?: string;
         items: Array<any>;
       }>("/orders/razorpay/verify", {
         method: "POST",

@@ -71,6 +71,8 @@ class Order(Base):
     total = Column(Integer, nullable=False)
     address = Column(String(500), nullable=False)
     payment_method = Column(String(100), nullable=False)
+    payment_id = Column(String(100), unique=True, index=True, nullable=True)
+    idempotency_key = Column(String(100), unique=True, index=True, nullable=True)
     prescription_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 

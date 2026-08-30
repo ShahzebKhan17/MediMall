@@ -176,6 +176,7 @@ class OrderCreate(BaseModel):
     payment_method: str
     address: Optional[str] = None
     prescription_name: Optional[str] = None
+    idempotency_key: Optional[str] = None
     items: List[OrderItemCreate]
 
 
@@ -190,6 +191,8 @@ class OrderResponse(BaseModel):
     total: int
     address: str
     payment_method: str
+    payment_id: Optional[str] = None
+    idempotency_key: Optional[str] = None
     prescription_url: Optional[str] = None
     created_at: datetime
     items: List[OrderItemSchema]
@@ -236,3 +239,4 @@ class RazorpayVerifyRequest(BaseModel):
     address: Optional[str] = None
     prescription_name: Optional[str] = None
     payment_method: str = "Razorpay"
+    idempotency_key: Optional[str] = None

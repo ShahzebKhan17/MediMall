@@ -1,6 +1,6 @@
 import math
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 try:
@@ -53,6 +53,7 @@ def get_assigned_pharmacy(
 @router.post("/", response_model=schemas.OrderResponse, status_code=status.HTTP_201_CREATED)
 def place_order(
     order_in: schemas.OrderCreate,
+    idempotency_header: Optional[str] = Header(None, alias="Idempotency-Key"),
     current_user_id: str = Depends(security.get_current_user_id),
     db: Session = Depends(get_db),
 ):
@@ -65,6 +66,20 @@ def place_order(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Please verify your email address to place orders. Check your inbox or request a new verification link from your dashboard.",
         )
+
+    # Idempotency Check: If key already processed for this user, return existing order directly
+    effective_idempotency_key = order_in.idempotency_key or idempotency_header
+    if effective_idempotency_key:
+        existing_order = (
+            db.query(Order)
+            .filter(
+                Order.user_id == current_user_id,
+                Order.idempotency_key == effective_idempotency_key,
+            )
+            .first()
+        )
+        if existing_order:
+            return existing_order
 
     address = order_in.address or user.address
     if not address:
@@ -119,7 +134,7 @@ def place_order(
             detail="No registered pharmacy partners are currently available in your service area. Please register a pharmacy partner or try again shortly.",
         )
 
-    # Create Order
+    # Create Order with Idempotency Key
     new_order = Order(
         user_id=current_user_id,
         pharmacy_id=assigned_pharmacy.id,
@@ -127,6 +142,7 @@ def place_order(
         total=total,
         address=address,
         payment_method=order_in.payment_method,
+        idempotency_key=effective_idempotency_key,
         prescription_url=order_in.prescription_name,
     )
     db.add(new_order)
@@ -395,6 +411,15 @@ def verify_razorpay_payment(
             detail="Please verify your email address to confirm payments.",
         )
 
+    # Idempotency Check: If already processed for this payment_id or idempotency_key, return existing order immediately
+    existing_order = None
+    if verify_in.razorpay_payment_id:
+        existing_order = db.query(Order).filter(Order.payment_id == verify_in.razorpay_payment_id).first()
+    if not existing_order and verify_in.idempotency_key:
+        existing_order = db.query(Order).filter(Order.user_id == current_user_id, Order.idempotency_key == verify_in.idempotency_key).first()
+    if existing_order:
+        return existing_order
+
     address = verify_in.address or user.address
     if not address:
         raise HTTPException(
@@ -469,6 +494,8 @@ def verify_razorpay_payment(
         total=total,
         address=address,
         payment_method=f"Razorpay ({verify_in.payment_method}) [Ref: {verify_in.razorpay_payment_id}]",
+        payment_id=verify_in.razorpay_payment_id,
+        idempotency_key=verify_in.idempotency_key,
         prescription_url=verify_in.prescription_name,
     )
     db.add(new_order)

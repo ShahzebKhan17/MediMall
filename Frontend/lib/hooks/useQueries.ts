@@ -114,6 +114,7 @@ export function usePlaceOrderMutation() {
       payment_method: string;
       address?: string;
       prescription_name?: string;
+      idempotency_key?: string;
       items: Array<{ medicine_id: number; quantity: number }>;
     }) => api.orders.place(orderData),
     onSuccess: () => {

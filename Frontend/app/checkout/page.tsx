@@ -63,13 +63,15 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
     setOrderError(null);
 
+    // Generate unique idempotency key for this checkout attempt
+    const idempotencyKey = `idem_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
     const deliveryAddress = addressInput || user?.address || "Indiranagar, Bengaluru";
     const orderItemsPayload = cart.map((c) => ({ medicine_id: c.id, quantity: c.quantity }));
 
-    // If COD, use direct order placement
+    // If COD, use direct order placement with Idempotency Key
     if (method === "cod") {
       try {
-        await placeOrder("COD", deliveryAddress);
+        await placeOrder("COD", deliveryAddress, undefined, idempotencyKey);
         setPlaced(true);
       } catch (e: any) {
         setOrderError(e.message || "Failed to place COD order. Please try again.");
@@ -118,6 +120,7 @@ export default function CheckoutPage() {
                 razorpay_signature: response.razorpay_signature || "simulated_signature",
                 payment_method: method.toUpperCase(),
                 address: deliveryAddress,
+                idempotency_key: idempotencyKey,
                 items: orderItemsPayload,
               });
               clearCart();
@@ -150,6 +153,7 @@ export default function CheckoutPage() {
           razorpay_signature: "simulated_signature",
           payment_method: method.toUpperCase(),
           address: deliveryAddress,
+          idempotency_key: idempotencyKey,
           items: orderItemsPayload,
         });
         clearCart();

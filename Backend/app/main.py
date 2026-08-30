@@ -55,6 +55,15 @@ async def lifespan(app: FastAPI):
                 if "salt_composition" not in existing_med_cols:
                     conn.execute(text("ALTER TABLE medicines ADD COLUMN salt_composition VARCHAR(255)"))
                     conn.commit()
+
+            if "orders" in inspector.get_table_names():
+                existing_order_cols = [c["name"] for c in inspector.get_columns("orders")]
+                if "payment_id" not in existing_order_cols:
+                    conn.execute(text("ALTER TABLE orders ADD COLUMN payment_id VARCHAR(100)"))
+                    conn.commit()
+                if "idempotency_key" not in existing_order_cols:
+                    conn.execute(text("ALTER TABLE orders ADD COLUMN idempotency_key VARCHAR(100)"))
+                    conn.commit()
     except Exception as err:
         logger.error("Database table initialization/migration error: %s", err)
 

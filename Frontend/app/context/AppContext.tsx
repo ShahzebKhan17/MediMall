@@ -78,7 +78,7 @@ interface AppContextProps {
   removeFromCart: (id: number) => void;
   updateCartQuantity: (id: number, quantity: number) => void;
   clearCart: () => void;
-  placeOrder: (paymentMethod: string, customAddress?: string, prescriptionName?: string) => Promise<string>;
+  placeOrder: (paymentMethod: string, customAddress?: string, prescriptionName?: string, idempotencyKey?: string) => Promise<string>;
   updateOrderStatus: (orderId: string, status: Order["status"]) => Promise<void>;
   addPrescription: (name: string) => void;
   updateProfile: (profile: Partial<UserProfile>) => Promise<void>;
@@ -240,7 +240,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.removeItem("medimall_role");
   };
 
-  const placeOrder = async (paymentMethod: string, customAddress?: string, prescriptionName?: string): Promise<string> => {
+  const placeOrder = async (
+    paymentMethod: string,
+    customAddress?: string,
+    prescriptionName?: string,
+    idempotencyKey?: string
+  ): Promise<string> => {
     if (cart.length === 0 && !prescriptionName) {
       throw new Error("Cannot place an empty order.");
     }
@@ -249,6 +254,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       payment_method: paymentMethod,
       address: customAddress || user?.address || "",
       prescription_name: prescriptionName,
+      idempotency_key: idempotencyKey,
       items: cart.map((c) => ({ medicine_id: c.id, quantity: c.quantity })),
     });
 
