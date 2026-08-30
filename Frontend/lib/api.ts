@@ -215,9 +215,42 @@ export const api = {
           color: string;
           image_url?: string;
           packaging_type?: string;
+          salt_composition?: string;
           stock: number;
         }>
       >(`/medicines/${queryString}`);
+    },
+    getById: async (id: number) => {
+      return apiFetch<{
+        id: number;
+        name: string;
+        brand: string;
+        price: number;
+        type: string;
+        rx: boolean;
+        color: string;
+        image_url?: string;
+        packaging_type?: string;
+        salt_composition?: string;
+        stock: number;
+      }>(`/medicines/${id}`);
+    },
+    getSubstitutes: async (id: number) => {
+      return apiFetch<
+        Array<{
+          id: number;
+          name: string;
+          brand: string;
+          price: number;
+          type: string;
+          rx: boolean;
+          color: string;
+          image_url?: string;
+          packaging_type?: string;
+          salt_composition?: string;
+          stock: number;
+        }>
+      >(`/medicines/${id}/substitutes`);
     },
     create: async (medicine: {
       name: string;
@@ -310,6 +343,11 @@ export const api = {
       return apiFetch(`/orders/${orderId}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
+      });
+    },
+    reassign: async (orderId: string) => {
+      return apiFetch(`/orders/${orderId}/reassign`, {
+        method: "POST",
       });
     },
     createRazorpayOrder: async (data: {

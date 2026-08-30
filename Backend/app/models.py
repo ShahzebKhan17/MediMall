@@ -51,6 +51,7 @@ class Medicine(Base):
     color = Column(String(50), default="blue", nullable=False)
     image_url = Column(String(500), nullable=True)
     packaging_type = Column(String(100), nullable=True)
+    salt_composition = Column(String(255), nullable=True)
     stock = Column(Integer, default=100, nullable=False)
     expiry_date = Column(String(100), nullable=True)
     manufacturing_date = Column(String(100), nullable=True)

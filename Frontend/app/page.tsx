@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Check, ChevronDown, Clock3, FileUp, HeartPulse, LayoutDashboard, MapPin, Menu, Mic, Moon, Pill, Search, ShieldCheck, Sparkles, Store, Sun, UserRound, X } from "lucide-react";
 import { useTheme } from "./context/ThemeContext";
 import { useAppContext } from "./context/AppContext";
+import { useLocation } from "./context/LocationContext";
 import { MedicineSearchDropdown } from "../components/ui/MedicineSearchDropdown";
 
 const medicines = ["Paracetamol 650", "Dolo 650", "Cetirizine", "Vitamin D3"];
@@ -16,6 +17,7 @@ export default function Home() {
   const [menu, setMenu] = useState(false);
   const { dark, toggleTheme } = useTheme();
   const { user, role, isHydrating } = useAppContext();
+  const { location, openLocationModal } = useLocation();
   
   const submit = (message: string) => { 
     setNotice(message); 
@@ -41,7 +43,14 @@ export default function Home() {
         <a className="brand" href="#top" aria-label="MediMall home"><span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span></a>
         <nav className={menu ? "open" : ""}><a href="#how">How it works</a><a href="#safety">Safety</a><a href="#partners">For pharmacies</a></nav>
         <div className="nav-actions">
-          <button className="location" onClick={() => router.push("/medicines")}><MapPin size={16}/> Bengaluru <ChevronDown size={14}/></button>
+          <button
+            className="location"
+            onClick={openLocationModal}
+            title="Click to detect or change delivery location"
+            aria-label={`Current location: ${location.city}`}
+          >
+            <MapPin size={16} /> {location.city} <ChevronDown size={14} />
+          </button>
           {!isHydrating && user ? (
             <a
               className="login"

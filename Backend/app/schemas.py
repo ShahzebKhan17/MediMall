@@ -115,6 +115,7 @@ class MedicineResponse(BaseModel):
     color: str
     image_url: Optional[str] = None
     packaging_type: Optional[str] = None
+    salt_composition: Optional[str] = None
     stock: int
     expiry_date: Optional[str] = None
     manufacturing_date: Optional[str] = None
@@ -133,6 +134,7 @@ class MedicineCreate(BaseModel):
     color: str = "blue"
     image_url: Optional[str] = None
     packaging_type: Optional[str] = None
+    salt_composition: Optional[str] = None
     stock: int = 100
     expiry_date: Optional[str] = None
     manufacturing_date: Optional[str] = None

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useAppContext, Order as AppOrder } from "../context/AppContext";
+import { api } from "../../lib/api";
 
 export interface ShopOrder {
   id: string;
@@ -18,6 +19,7 @@ interface ShopkeeperContextProps {
   queue: ShopOrder[];
   completeOrder: (name: string) => void;
   advanceOrder: (orderId: string) => void;
+  reassignOrder: (orderId: string) => Promise<void>;
   soundEnabled: boolean;
   isAudioRinging: boolean;
   toggleSound: () => void;
@@ -29,6 +31,7 @@ const ShopkeeperContext = createContext<ShopkeeperContextProps>({
   queue: [],
   completeOrder: () => {},
   advanceOrder: () => {},
+  reassignOrder: async () => {},
   soundEnabled: true,
   isAudioRinging: false,
   toggleSound: () => {},
@@ -206,12 +209,25 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
     }
   };
 
+  const reassignOrder = async (orderId: string) => {
+    acknowledgedOrderIdsRef.current.add(orderId);
+    if (isAudioRinging) silenceAlert();
+    try {
+      await api.orders.reassign(orderId);
+      await refreshOrders();
+    } catch (err: any) {
+      console.error("Failed to reassign order:", err);
+      alert(err?.message || "No alternative pharmacy found in this area.");
+    }
+  };
+
   return (
     <ShopkeeperContext.Provider
       value={{
         queue,
         completeOrder,
         advanceOrder,
+        reassignOrder,
         soundEnabled,
         isAudioRinging,
         toggleSound,

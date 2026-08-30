@@ -13,7 +13,9 @@ import "./auth.css";
 import "./register.css";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AppProvider } from "./context/AppContext";
+import { LocationProvider } from "./context/LocationContext";
 import { QueryProvider } from "../components/providers/QueryProvider";
+import { LocationModal } from "../components/ui/LocationModal";
 
 export const metadata: Metadata = { title: "MediMall — Medicine, nearby", description: "Your local pharmacy, delivered in minutes." };
 
@@ -23,7 +25,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <QueryProvider>
           <ThemeProvider>
-            <AppProvider>{children}</AppProvider>
+            <AppProvider>
+              <LocationProvider>
+                {children}
+                <LocationModal />
+              </LocationProvider>
+            </AppProvider>
           </ThemeProvider>
         </QueryProvider>
       </body>

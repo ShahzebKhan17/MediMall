@@ -1,12 +1,12 @@
 "use client";
 
-import { BarChart3, Check, ChevronDown, Clock3, FileCheck2, Package, ShieldCheck, ShoppingBag } from "lucide-react";
+import { ArrowRightLeft, BarChart3, Check, ChevronDown, Clock3, FileCheck2, Package, ShieldCheck, ShoppingBag } from "lucide-react";
 import { useShopkeeper } from "../ShopkeeperContext";
 import { useAppContext } from "../../context/AppContext";
 
 
 export default function ShopkeeperDashboard() {
-  const { queue, advanceOrder, isAudioRinging, silenceAlert } = useShopkeeper();
+  const { queue, advanceOrder, reassignOrder, isAudioRinging, silenceAlert } = useShopkeeper();
   const { user } = useAppContext();
 
   const getButtonDetails = (status: string, priority: string) => {
@@ -179,9 +179,31 @@ export default function ShopkeeperDashboard() {
                       <p>{order.items}</p>
                       <small><ShieldCheck size={12}/>{order.type} ({order.status})</small>
                     </div>
-                    <button className={btn.className} onClick={() => advanceOrder(order.id)}>
-                      {btn.icon} {btn.label}
-                    </button>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <button
+                        className="plain"
+                        style={{
+                          padding: "8px 12px",
+                          fontSize: "12px",
+                          borderRadius: "8px",
+                          border: "1px solid var(--line, #cbd5e1)",
+                          color: "var(--muted, #64748b)",
+                          backgroundColor: "var(--field-bg, #f8fafc)",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "5px",
+                        }}
+                        onClick={() => reassignOrder(order.id)}
+                        title="Transfer order to the next closest pharmacy partner if item is out of stock"
+                      >
+                        <ArrowRightLeft size={13} /> Pass to Partner
+                      </button>
+                      <button className={btn.className} onClick={() => advanceOrder(order.id)}>
+                        {btn.icon} {btn.label}
+                      </button>
+                    </div>
                   </article>
                 );
               })}

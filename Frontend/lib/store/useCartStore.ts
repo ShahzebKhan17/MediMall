@@ -11,6 +11,7 @@ export interface Medicine {
   color: string;
   image_url?: string;
   packaging_type?: string;
+  salt_composition?: string;
   stock?: number;
 }
 

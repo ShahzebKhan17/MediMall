@@ -25,8 +25,17 @@ from app import schemas
 router = APIRouter()
 
 
-def get_assigned_pharmacy(db: Session, patient_lat: float, patient_lng: float) -> Optional[User]:
-    pharmacies = db.query(User).filter(User.role == "pharmacy").all()
+def get_assigned_pharmacy(
+    db: Session,
+    patient_lat: float,
+    patient_lng: float,
+    exclude_pharmacy_ids: Optional[List[str]] = None
+) -> Optional[User]:
+    query = db.query(User).filter(User.role == "pharmacy")
+    if exclude_pharmacy_ids:
+        query = query.filter(~User.id.in_(exclude_pharmacy_ids))
+    
+    pharmacies = query.all()
     if not pharmacies:
         return None
 
@@ -245,6 +254,50 @@ def update_order_status(
 
     # Update status and commit
     order.status = status_update.status
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+@router.post("/{id}/reassign", response_model=schemas.OrderResponse)
+@router.patch("/{id}/reassign", response_model=schemas.OrderResponse)
+def reassign_order_to_next_pharmacy(
+    id: str,
+    current_user_id: str = Depends(security.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """
+    Cascades/transfers an order to the next closest pharmacy partner if the current
+    assigned pharmacy is unable to fulfill it.
+    """
+    user = db.query(User).filter(User.id == current_user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    order = db.query(Order).filter(Order.id == id).first()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    # Determine patient coordinates
+    patient = db.query(User).filter(User.id == order.user_id).first()
+    patient_lat = patient.latitude if (patient and patient.latitude is not None) else 12.9716
+    patient_lng = patient.longitude if (patient and patient.longitude is not None) else 77.5946
+
+    # Exclude current pharmacy and find the next nearest
+    next_pharmacy = get_assigned_pharmacy(
+        db,
+        patient_lat=patient_lat,
+        patient_lng=patient_lng,
+        exclude_pharmacy_ids=[order.pharmacy_id] if order.pharmacy_id else [current_user_id]
+    )
+
+    if not next_pharmacy:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No alternative pharmacy partner found in this service zone to fulfill the order.",
+        )
+
+    order.pharmacy_id = next_pharmacy.id
     db.commit()
     db.refresh(order)
     return order

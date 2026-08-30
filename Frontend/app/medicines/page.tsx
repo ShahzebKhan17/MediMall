@@ -1,18 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, ArrowLeft, Check, ChevronDown, Clock3, FileUp, Loader2, MapPin, Minus, Moon, Pill, Plus, RefreshCw, Search, ShieldCheck, ShoppingBag, Sun, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, ChevronDown, Clock3, FileUp, Loader2, MapPin, Minus, Moon, Pill, Plus, RefreshCw, Search, ShieldCheck, ShoppingBag, Sparkles, Sun, X } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAppContext, Medicine } from "../context/AppContext";
+import { useLocation } from "../context/LocationContext";
 import { useMedicinesQuery } from "../../lib/hooks/useQueries";
 import { MedicineSearchDropdown } from "../../components/ui/MedicineSearchDropdown";
+import { api } from "../../lib/api";
 
 export default function MedicinesPage() {
   const [query, setQuery] = useState("");
   const { data: catalogue = [], isLoading, isError, refetch } = useMedicinesQuery();
   const { dark, toggleTheme } = useTheme();
   const { cart, addToCart, updateCartQuantity, removeFromCart, user, role } = useAppContext();
+  const { location, openLocationModal } = useLocation();
   const [toast, setToast] = useState("");
+
+  // Substitutes state
+  const [substituteTarget, setSubstituteTarget] = useState<Medicine | null>(null);
+  const [substitutesList, setSubstitutesList] = useState<Medicine[]>([]);
+  const [loadingSubstitutes, setLoadingSubstitutes] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -29,19 +37,33 @@ export default function MedicinesPage() {
 
   const handleAdd = (medicine: Medicine) => {
     addToCart(medicine.id, medicine);
-    setToast(`Added ${medicine.name} to your cart`);
-    setTimeout(() => setToast(""), 1800);
+    setToast(`Added ${medicine.name} to cart`);
+    setTimeout(() => setToast(""), 2000);
   };
 
-  const userInitials = user ? user.name.split(" ").map(n => n[0]).join("") : "US";
-  const homeHref = user ? (role === "pharmacy" ? "/shopkeeper/dashboard" : "/user/dashboard") : "/";
+  const handleOpenSubstitutes = async (medicine: Medicine) => {
+    setSubstituteTarget(medicine);
+    setLoadingSubstitutes(true);
+    try {
+      const subs = await api.medicines.getSubstitutes(medicine.id);
+      setSubstitutesList(subs);
+    } catch (err) {
+      console.error("Failed to load substitutes:", err);
+      setSubstitutesList([]);
+    } finally {
+      setLoadingSubstitutes(false);
+    }
+  };
 
-  // Calculate unique cart count & total price
+  const userInitials = user ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "U";
+  const homeHref = role === "pharmacy" ? "/shopkeeper/dashboard" : "/";
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const cartTotal = cart.reduce((sum, item) => {
     const med = item.medicine || catalogue.find(m => m.id === item.id);
     return sum + (med ? med.price * item.quantity : 0);
   }, 0);
+
+  const displayLocation = user?.address ? user.address.split(",")[0] : location.formatted;
 
   return (
     <main className={`order-page ${dark ? "dark" : ""}`}>
@@ -50,9 +72,16 @@ export default function MedicinesPage() {
         <a className="brand" href={homeHref}>
           <span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span>
         </a>
-        <div className="order-location">
+        <div
+          className="order-location"
+          onClick={openLocationModal}
+          style={{ cursor: "pointer" }}
+          title="Click to detect or change delivery location"
+          role="button"
+          tabIndex={0}
+        >
           <MapPin size={16}/>
-          <span>Delivering to<br/><b>{user?.address ? user.address.split(",")[0] : "Indiranagar, Bengaluru"}</b></span>
+          <span>Delivering to<br/><b>{displayLocation}</b></span>
           <ChevronDown size={14}/>
         </div>
         <button className="theme-toggle" onClick={toggleTheme}>
@@ -201,7 +230,31 @@ export default function MedicinesPage() {
                       {m.rx && <em><ShieldCheck size={12}/> Prescription needed</em>}
                     </div>
                   </div>
-                  <button onClick={() => handleAdd(m)} className="add-btn"><Plus size={16}/>Add</button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: "flex-end" }}>
+                    <button onClick={() => handleAdd(m)} className="add-btn"><Plus size={16}/>Add</button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenSubstitutes(m);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#227f5e",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "3px",
+                        padding: "2px 4px",
+                      }}
+                      title="Compare alternative brands with the exact same chemical composition"
+                    >
+                      <Sparkles size={11} /> Substitutes
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>
@@ -294,8 +347,184 @@ export default function MedicinesPage() {
           </div>
         </aside>
       </div>
+
+      {/* Smart Generic Substitutes Modal */}
+      {substituteTarget && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.65)",
+            backdropFilter: "blur(6px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+          onClick={() => setSubstituteTarget(null)}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "520px",
+              backgroundColor: "var(--card-bg, #ffffff)",
+              color: "var(--ink, #16342e)",
+              borderRadius: "20px",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              border: "1px solid var(--line, #e2e8f0)",
+              overflow: "hidden",
+              animation: "modalFadeIn 0.2s ease-out",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: "20px 24px",
+                borderBottom: "1px solid var(--line, #e2e8f0)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "10px",
+                    backgroundColor: "rgba(34, 127, 94, 0.12)",
+                    color: "#227f5e",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 700 }}>Available Substitutes</h3>
+                  <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--muted, #64748b)" }}>
+                    Same active composition: <strong>{substituteTarget.salt_composition || substituteTarget.type}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSubstituteTarget(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "6px",
+                  borderRadius: "8px",
+                  color: "var(--muted, #64748b)",
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: "20px 24px", maxHeight: "65vh", overflowY: "auto" }}>
+              {/* Target Medicine Preview */}
+              <div
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: "12px",
+                  backgroundColor: "var(--field-bg, #f8fafc)",
+                  border: "1px solid var(--line, #e2e8f0)",
+                  marginBottom: "16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: "11px", color: "var(--muted, #64748b)", textTransform: "uppercase", fontWeight: 700 }}>Selected Item</span>
+                  <div style={{ fontSize: "14px", fontWeight: 700 }}>{substituteTarget.name}</div>
+                  <div style={{ fontSize: "12px", color: "var(--muted, #64748b)" }}>{substituteTarget.brand}</div>
+                </div>
+                <div style={{ fontSize: "15px", fontWeight: 700, color: "#16342e" }}>₹{substituteTarget.price}</div>
+              </div>
+
+              <div style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", color: "var(--muted, #64748b)", marginBottom: "10px" }}>
+                Generic &amp; Brand Alternatives in Stock
+              </div>
+
+              {loadingSubstitutes ? (
+                <div style={{ textAlign: "center", padding: "30px" }}>
+                  <Loader2 size={24} className="animate-spin" style={{ margin: "0 auto 10px", color: "#227f5e" }} />
+                  <p style={{ fontSize: "13px", color: "var(--muted, #64748b)", margin: 0 }}>Finding in-stock bio-equivalent medicines...</p>
+                </div>
+              ) : substitutesList.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  {substitutesList.map((sub) => {
+                    const priceDiff = substituteTarget.price - sub.price;
+                    return (
+                      <div
+                        key={sub.id}
+                        style={{
+                          padding: "14px 16px",
+                          borderRadius: "12px",
+                          border: "1px solid #e2e8f0",
+                          backgroundColor: "#ffffff",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "12px",
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ fontSize: "14px", fontWeight: 700 }}>{sub.name}</span>
+                            {priceDiff > 0 && (
+                              <span style={{ fontSize: "10px", backgroundColor: "#dcfce7", color: "#166534", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>
+                                Save ₹{priceDiff}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: "12px", color: "var(--muted, #64748b)" }}>{sub.brand}</div>
+                          <div style={{ fontSize: "11px", color: "#166534", marginTop: "2px", fontWeight: 600 }}>
+                            ✓ In Stock at Nearest Partner
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <span style={{ fontSize: "15px", fontWeight: 700 }}>₹{sub.price}</span>
+                          <button
+                            onClick={() => {
+                              handleAdd(sub);
+                              setSubstituteTarget(null);
+                            }}
+                            style={{
+                              padding: "8px 14px",
+                              borderRadius: "8px",
+                              backgroundColor: "#227f5e",
+                              color: "#ffffff",
+                              border: "none",
+                              fontWeight: 600,
+                              fontSize: "12px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            + Add Substitute
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "30px 10px", border: "1px dashed var(--line, #cbd5e1)", borderRadius: "12px" }}>
+                  <p style={{ margin: "0 0 4px", fontSize: "13px", fontWeight: 600 }}>No alternate brands in catalog</p>
+                  <p style={{ margin: 0, fontSize: "12px", color: "var(--muted, #64748b)" }}>{substituteTarget.name} is currently the sole verified brand for this active formulation.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
-
-
