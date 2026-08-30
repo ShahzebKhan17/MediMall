@@ -286,7 +286,7 @@ def resend_verification(payload: schemas.ResendVerificationRequest, db: Session 
     else:
         return schemas.ResendVerificationResponse(
             status="warning",
-            message=f"Verification link generated for {user.email}. If using Resend sandbox mode, ensure the recipient email matches your Resend account or verify your domain.",
+            message=f"Verification link generated for {user.email}. If using test mode, please verify delivery settings or check server logs.",
             already_verified=False,
             delivery_status="logged_fallback",
         )

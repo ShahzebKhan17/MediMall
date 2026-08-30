@@ -1,6 +1,15 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import List
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+_ENV_FILE_CANDIDATES = (
+    str(_BACKEND_DIR / ".env"),
+    ".env",
+    "Backend/.env",
+)
 
 
 class Settings(BaseSettings):
@@ -13,12 +22,19 @@ class Settings(BaseSettings):
     razorpay_key_secret: str = "placeholder_secret"
     resend_api_key: str = ""
     resend_from_email: str = "MediMall <onboarding@resend.dev>"
+    email_provider: str = ""  # 'smtp' or 'resend' or empty (auto-detect based on provided keys)
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_use_tls: bool = True
     frontend_url: str = "http://localhost:3000"
     gemini_api_key: str = ""
     openai_api_key: str = ""
 
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE_CANDIDATES, extra="ignore")
 
     @property
     def is_production(self) -> bool:

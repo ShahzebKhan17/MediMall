@@ -1,6 +1,10 @@
 import hashlib
 import logging
 import secrets
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import formataddr
 from typing import Optional, Tuple
 
 import resend
@@ -122,47 +126,120 @@ def get_verification_email_html(user_name: str, verification_url: str) -> str:
 </html>"""
 
 
+def send_email_smtp(to_email: str, subject: str, html_content: str) -> bool:
+    """
+    Sends an email using standard SMTP (e.g. Gmail SMTP, Brevo, AWS SES, etc.).
+    Supports TLS (port 587) and SSL (port 465).
+    """
+    host = settings.smtp_host.strip() if settings.smtp_host else "smtp.gmail.com"
+    port = settings.smtp_port or 587
+    username = settings.smtp_user.strip() if settings.smtp_user else ""
+    password = settings.smtp_password.strip() if settings.smtp_password else ""
+
+    sender_email = settings.smtp_from_email.strip() if settings.smtp_from_email else username
+    if not sender_email:
+        sender_email = username
+
+    if not (username and password):
+        logger.error("SMTP credentials missing: smtp_user or smtp_password is empty")
+        return False
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        # If sender_email does not already include display name formatting, wrap nicely
+        if "<" not in sender_email and ">" not in sender_email:
+            msg["From"] = formataddr(("MediMall", sender_email))
+        else:
+            msg["From"] = sender_email
+        msg["To"] = to_email
+
+        part_html = MIMEText(html_content, "html", "utf-8")
+        msg.attach(part_html)
+
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, timeout=20) as server:
+                server.login(username, password)
+                server.sendmail(msg["From"], [to_email], msg.as_string())
+        else:
+            with smtplib.SMTP(host, port, timeout=20) as server:
+                server.ehlo()
+                if settings.smtp_use_tls:
+                    server.starttls()
+                    server.ehlo()
+                server.login(username, password)
+                server.sendmail(msg["From"], [to_email], msg.as_string())
+
+        logger.info("Email sent via SMTP (%s:%s) to %s (Subject: %s)", host, port, to_email, subject)
+        return True
+    except Exception as err:
+        logger.error("Failed to send email via SMTP to %s: %s", to_email, err)
+        return False
+
+
+def _get_active_provider() -> str:
+    """Determines which email provider to use: 'smtp', 'resend', or 'dev'."""
+    explicit = (settings.email_provider or "").strip().lower()
+    if explicit in ("smtp", "resend"):
+        return explicit
+    # Auto-detection: prioritize SMTP if credentials provided, otherwise Resend
+    if settings.smtp_user and settings.smtp_password:
+        return "smtp"
+    if settings.resend_api_key:
+        return "resend"
+    return "dev"
+
+
 def send_verification_email(to_email: str, user_name: str, raw_token: str) -> bool:
     """
-    Sends a branded verification email to the user using Resend.
-    If RESEND_API_KEY is not configured (e.g. local dev), logs the verification link to the console.
+    Sends a branded verification email to the user using the configured provider (SMTP or Resend).
+    If no provider is configured, logs the verification link to the console.
     """
     base_url = settings.frontend_url.rstrip("/")
     verification_url = f"{base_url}/verify-email?token={raw_token}"
     html_content = get_verification_email_html(user_name=user_name, verification_url=verification_url)
+    subject = "Verify your email address - MediMall"
 
-    api_key = settings.resend_api_key.strip() if settings.resend_api_key else ""
+    provider = _get_active_provider()
 
-    if api_key:
-        try:
-            resend.api_key = api_key
-            params: resend.Emails.SendParams = {
-                "from": settings.resend_from_email,
-                "to": [to_email],
-                "subject": "Verify your email address - MediMall",
-                "html": html_content,
-            }
-            email_response = resend.Emails.send(params)
-            logger.info("Verification email sent via Resend to %s: ID %s", to_email, email_response.get("id"))
+    if provider == "smtp":
+        success = send_email_smtp(to_email=to_email, subject=subject, html_content=html_content)
+        if success:
             return True
-        except Exception as err:
-            logger.error("Failed to send verification email via Resend to %s: %s", to_email, err)
-            # Fall back to logging URL for recovery/dev
-            logger.info("[RESEND FALLBACK] Verification link for %s: %s", to_email, verification_url)
-            return False
-    else:
-        # Development / test mode fallback when no key is provided
-        logger.warning(
-            "RESEND_API_KEY is not set. [DEV VERIFICATION LINK for %s]: %s",
-            to_email,
-            verification_url,
-        )
-        print(f"\n========================================================")
-        print(f"[MEDIMALL EMAIL SERVICE - RESEND DEV SIMULATION]")
-        print(f"To: {to_email} ({user_name})")
-        print(f"Verification URL: {verification_url}")
-        print(f"========================================================\n")
-        return True
+        logger.info("[SMTP FALLBACK] Verification link for %s: %s", to_email, verification_url)
+        return False
+
+    elif provider == "resend":
+        api_key = settings.resend_api_key.strip() if settings.resend_api_key else ""
+        if api_key:
+            try:
+                resend.api_key = api_key
+                params: resend.Emails.SendParams = {
+                    "from": settings.resend_from_email,
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": html_content,
+                }
+                email_response = resend.Emails.send(params)
+                logger.info("Verification email sent via Resend to %s: ID %s", to_email, email_response.get("id"))
+                return True
+            except Exception as err:
+                logger.error("Failed to send verification email via Resend to %s: %s", to_email, err)
+                logger.info("[RESEND FALLBACK] Verification link for %s: %s", to_email, verification_url)
+                return False
+
+    # Development / test mode fallback when no email credentials are provided
+    logger.warning(
+        "No email provider credentials set. [DEV VERIFICATION LINK for %s]: %s",
+        to_email,
+        verification_url,
+    )
+    print(f"\n========================================================")
+    print(f"[MEDIMALL EMAIL SERVICE - DEV SIMULATION]")
+    print(f"To: {to_email} ({user_name})")
+    print(f"Verification URL: {verification_url}")
+    print(f"========================================================\n")
+    return True
 
 
 def get_password_reset_email_html(user_name: str, reset_url: str) -> str:
@@ -257,40 +334,50 @@ def get_password_reset_email_html(user_name: str, reset_url: str) -> str:
 
 def send_password_reset_email(to_email: str, user_name: str, raw_token: str) -> bool:
     """
-    Sends a branded password reset email to the user using Resend.
-    If RESEND_API_KEY is not configured (e.g. local dev), logs the reset link to the console.
+    Sends a branded password reset email to the user using the configured provider (SMTP or Resend).
+    If no provider is configured, logs the reset link to the console.
     """
     base_url = settings.frontend_url.rstrip("/")
     reset_url = f"{base_url}/reset-password?token={raw_token}"
     html_content = get_password_reset_email_html(user_name=user_name, reset_url=reset_url)
+    subject = "Reset your password - MediMall"
 
-    api_key = settings.resend_api_key.strip() if settings.resend_api_key else ""
+    provider = _get_active_provider()
 
-    if api_key:
-        try:
-            resend.api_key = api_key
-            params: resend.Emails.SendParams = {
-                "from": settings.resend_from_email,
-                "to": [to_email],
-                "subject": "Reset your password - MediMall",
-                "html": html_content,
-            }
-            email_response = resend.Emails.send(params)
-            logger.info("Password reset email sent via Resend to %s: ID %s", to_email, email_response.get("id"))
+    if provider == "smtp":
+        success = send_email_smtp(to_email=to_email, subject=subject, html_content=html_content)
+        if success:
             return True
-        except Exception as err:
-            logger.error("Failed to send password reset email via Resend to %s: %s", to_email, err)
-            logger.info("[RESEND FALLBACK] Password reset link for %s: %s", to_email, reset_url)
-            return False
-    else:
-        logger.warning(
-            "RESEND_API_KEY is not set. [DEV PASSWORD RESET LINK for %s]: %s",
-            to_email,
-            reset_url,
-        )
-        print(f"\n========================================================")
-        print(f"[MEDIMALL EMAIL SERVICE - PASSWORD RESET DEV SIMULATION]")
-        print(f"To: {to_email} ({user_name})")
-        print(f"Password Reset URL: {reset_url}")
-        print(f"========================================================\n")
-        return True
+        logger.info("[SMTP FALLBACK] Password reset link for %s: %s", to_email, reset_url)
+        return False
+
+    elif provider == "resend":
+        api_key = settings.resend_api_key.strip() if settings.resend_api_key else ""
+        if api_key:
+            try:
+                resend.api_key = api_key
+                params: resend.Emails.SendParams = {
+                    "from": settings.resend_from_email,
+                    "to": [to_email],
+                    "subject": subject,
+                    "html": html_content,
+                }
+                email_response = resend.Emails.send(params)
+                logger.info("Password reset email sent via Resend to %s: ID %s", to_email, email_response.get("id"))
+                return True
+            except Exception as err:
+                logger.error("Failed to send password reset email via Resend to %s: %s", to_email, err)
+                logger.info("[RESEND FALLBACK] Password reset link for %s: %s", to_email, reset_url)
+                return False
+
+    logger.warning(
+        "No email provider credentials set. [DEV PASSWORD RESET LINK for %s]: %s",
+        to_email,
+        reset_url,
+    )
+    print(f"\n========================================================")
+    print(f"[MEDIMALL EMAIL SERVICE - PASSWORD RESET DEV SIMULATION]")
+    print(f"To: {to_email} ({user_name})")
+    print(f"Password Reset URL: {reset_url}")
+    print(f"========================================================\n")
+    return True
