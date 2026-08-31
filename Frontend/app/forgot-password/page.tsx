@@ -41,11 +41,12 @@ export default function ForgotPasswordPage() {
     setSuccessMessage(null);
     setLoading(true);
 
+    const cleanEmail = email.trim().toLowerCase();
     try {
-      const res = await api.auth.forgotPassword(email.trim());
+      const res = await api.auth.forgotPassword(cleanEmail);
       setSuccessMessage(
         res.message ||
-          `A password reset link has been dispatched to ${email}. Please check your inbox and spam folder.`
+          `A password reset link has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`
       );
       setCooldownSeconds(60);
     } catch (err: any) {

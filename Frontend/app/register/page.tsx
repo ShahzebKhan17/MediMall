@@ -9,6 +9,8 @@ import {
   Check,
   CheckCircle2,
   ChevronLeft,
+  Eye,
+  EyeOff,
   FileText,
   Lock,
   Mail,
@@ -33,6 +35,7 @@ export default function Register() {
   const [phoneOrOwner, setPhoneOrOwner] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [medicalLicense, setMedicalLicense] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -62,12 +65,13 @@ export default function Register() {
     }
 
     setLoading(true);
+    const cleanEmail = email.trim().toLowerCase();
     try {
       await registerUser(
         {
           name,
           phone: role === "patient" ? phoneOrOwner : "",
-          email,
+          email: cleanEmail,
           address: role === "patient" ? undefined : "Shop Address, Bengaluru",
           medical_license: role === "pharmacy" ? medicalLicense : undefined,
         },
@@ -88,8 +92,9 @@ export default function Register() {
     if (cooldownSeconds > 0) return;
     setResending(true);
     setResendStatus(null);
+    const cleanEmail = email.trim().toLowerCase();
     try {
-      await resendVerificationEmail(email);
+      await resendVerificationEmail(cleanEmail);
       setResendStatus("A fresh verification email has been sent! Check your inbox & spam folder.");
       setCooldownSeconds(60);
     } catch (err: any) {
@@ -296,13 +301,37 @@ export default function Register() {
               </label>
               <label>
                 Create password
-                <input
-                  required
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 8 characters"
-                />
+                <div style={{ position: "relative", width: "100%" }}>
+                  <input
+                    required
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min. 8 characters"
+                    style={{ paddingRight: "40px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: "absolute",
+                      right: "12px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#82918b",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "4px",
+                    }}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </label>
             </div>
 

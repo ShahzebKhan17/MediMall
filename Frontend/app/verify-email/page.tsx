@@ -114,7 +114,8 @@ function VerifyEmailContent() {
     setResendError(null);
     setResendSuccess(null);
 
-    const targetEmail = emailInput.trim() || user?.email;
+    const rawTarget = emailInput.trim() || user?.email || "";
+    const targetEmail = rawTarget.trim().toLowerCase();
     if (!targetEmail) {
       setResendError("Please enter your registered email address.");
       return;

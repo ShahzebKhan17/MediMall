@@ -8,6 +8,8 @@ import {
   Building2,
   Check,
   ChevronLeft,
+  Eye,
+  EyeOff,
   Moon,
   ShieldCheck,
   Sun,
@@ -24,6 +26,7 @@ export default function LoginPage() {
   const [role, setRole] = useState<"user" | "shop">("user");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -37,8 +40,9 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     const appRole = role === "user" ? "patient" : "pharmacy";
+    const cleanEmail = email.trim().toLowerCase();
     try {
-      await login(email, appRole, password);
+      await login(cleanEmail, appRole, password);
       router.push(role === "user" ? "/user/dashboard" : "/shopkeeper/dashboard");
     } catch (err: any) {
       console.error("Login failed:", err);
@@ -132,16 +136,40 @@ export default function LoginPage() {
           </label>
           <label>
             Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (error) setError(null);
-              }}
-              placeholder="Enter your password"
-              required
-            />
+            <div style={{ position: "relative", width: "100%" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError(null);
+                }}
+                placeholder="Enter your password"
+                required
+                style={{ paddingRight: "40px" }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#82918b",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "4px",
+                }}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </label>
           <div className="auth-options">
             <label>

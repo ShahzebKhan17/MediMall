@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core import security
@@ -35,7 +36,8 @@ def set_auth_cookie(response: Response, token: str):
 
 @router.post("/register", response_model=schemas.UserProfile, status_code=status.HTTP_201_CREATED)
 def register(user_in: schemas.UserCreate, response: Response, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.email == user_in.email).first()
+    clean_email = user_in.email.strip().lower()
+    db_user = db.query(User).filter(func.lower(User.email) == clean_email).first()
     if db_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -53,7 +55,7 @@ def register(user_in: schemas.UserCreate, response: Response, db: Session = Depe
     verification_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
 
     new_user = User(
-        email=user_in.email,
+        email=clean_email,
         hashed_password=hashed_password,
         name=user_in.name,
         age=user_in.age,
@@ -95,7 +97,8 @@ def register(user_in: schemas.UserCreate, response: Response, db: Session = Depe
 
 @router.post("/token", response_model=schemas.Token)
 def login_oauth2(form_data: OAuth2PasswordRequestForm = Depends(), response: Response = None, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == form_data.username).first()
+    clean_username = form_data.username.strip().lower()
+    user = db.query(User).filter(func.lower(User.email) == clean_username).first()
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -119,7 +122,8 @@ class LoginJSONPayload(schemas.BaseModel):
 
 @router.post("/login", response_model=schemas.Token)
 def login_json(payload: LoginJSONPayload, response: Response, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+    clean_email = payload.email.strip().lower()
+    user = db.query(User).filter(func.lower(User.email) == clean_email).first()
     if not user or not security.verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -232,7 +236,7 @@ def verify_email(payload: schemas.VerifyEmailRequest, db: Session = Depends(get_
 @router.post("/resend-verification", response_model=schemas.ResendVerificationResponse)
 def resend_verification(payload: schemas.ResendVerificationRequest, db: Session = Depends(get_db)):
     email_clean = payload.email.strip().lower()
-    user = db.query(User).filter(User.email == email_clean).first()
+    user = db.query(User).filter(func.lower(User.email) == email_clean).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -295,7 +299,7 @@ def resend_verification(payload: schemas.ResendVerificationRequest, db: Session 
 @router.post("/forgot-password", response_model=schemas.ForgotPasswordResponse)
 def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
     email_clean = payload.email.strip().lower()
-    user = db.query(User).filter(User.email == email_clean).first()
+    user = db.query(User).filter(func.lower(User.email) == email_clean).first()
 
     # For privacy/security, if user does not exist, return standard generic message
     if not user:
