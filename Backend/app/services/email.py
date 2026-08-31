@@ -237,8 +237,21 @@ def send_email_brevo(to_email: str, subject: str, html_content: str, user_name: 
 def _get_active_provider() -> str:
     """Determines which email provider to use: 'brevo', 'smtp', 'resend', or 'dev'."""
     explicit = (settings.email_provider or "").strip().lower()
-    if explicit in ("brevo", "smtp", "resend"):
-        return explicit
+
+    if explicit == "brevo":
+        return "brevo"
+
+    # If explicitly set to SMTP, verify SMTP credentials exist; otherwise fallback to Brevo if available
+    if explicit == "smtp":
+        if settings.smtp_user and settings.smtp_password:
+            return "smtp"
+        if settings.brevo_api_key:
+            logger.info("SMTP credentials incomplete; auto-switching to Brevo HTTPS API")
+            return "brevo"
+
+    if explicit == "resend":
+        return "resend"
+
     # Auto-detection priority:
     if settings.brevo_api_key:
         return "brevo"
