@@ -190,7 +190,7 @@ def send_email_brevo(to_email: str, subject: str, html_content: str, user_name: 
         logger.error("Brevo API key is missing")
         return False
 
-    sender_email = (settings.brevo_sender_email or settings.smtp_user or "").strip()
+    sender_email = (settings.brevo_sender_email or settings.smtp_user or "786khanmohammad@gmail.com").strip()
     sender_name = (settings.brevo_sender_name or "MediMall").strip()
 
     if not sender_email:

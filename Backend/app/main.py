@@ -135,6 +135,21 @@ def health_check():
     }
 
 
+@app.get("/health/email", tags=["Health"])
+@app.get("/api/v1/health/email", tags=["Health"])
+def email_health_check():
+    from app.services.email import _get_active_provider
+    provider = _get_active_provider()
+    return {
+        "active_provider": provider,
+        "brevo_configured": bool(settings.brevo_api_key),
+        "brevo_sender_email": settings.brevo_sender_email or "not_set",
+        "smtp_configured": bool(settings.smtp_user and settings.smtp_password),
+        "resend_configured": bool(settings.resend_api_key),
+        "frontend_url": settings.frontend_url,
+    }
+
+
 app.include_router(api_router, prefix="/api/v1")
 
 
