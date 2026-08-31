@@ -22,7 +22,10 @@ class Settings(BaseSettings):
     razorpay_key_secret: str = "placeholder_secret"
     resend_api_key: str = ""
     resend_from_email: str = "MediMall <onboarding@resend.dev>"
-    email_provider: str = ""  # 'smtp' or 'resend' or empty (auto-detect based on provided keys)
+    brevo_api_key: str = ""
+    brevo_sender_email: str = ""
+    brevo_sender_name: str = "MediMall"
+    email_provider: str = ""  # 'brevo', 'smtp', 'resend', or empty (auto-detect)
     smtp_host: str = "smtp.gmail.com"
     smtp_port: int = 587
     smtp_user: str = ""

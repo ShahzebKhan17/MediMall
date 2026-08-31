@@ -1,7 +1,10 @@
 import hashlib
+import json
 import logging
 import secrets
 import smtplib
+import urllib.error
+import urllib.request
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
@@ -177,12 +180,68 @@ def send_email_smtp(to_email: str, subject: str, html_content: str) -> bool:
         return False
 
 
+def send_email_brevo(to_email: str, subject: str, html_content: str, user_name: str = "") -> bool:
+    """
+    Sends an email using Brevo's Transactional Email REST API over HTTPS (Port 443).
+    Safe and unblocked on cloud hosting platforms like Render, Vercel, and Railway.
+    """
+    api_key = settings.brevo_api_key.strip() if settings.brevo_api_key else ""
+    if not api_key:
+        logger.error("Brevo API key is missing")
+        return False
+
+    sender_email = (settings.brevo_sender_email or settings.smtp_user or "").strip()
+    sender_name = (settings.brevo_sender_name or "MediMall").strip()
+
+    if not sender_email:
+        logger.error("Brevo sender email is missing (set BREVO_SENDER_EMAIL)")
+        return False
+
+    payload = {
+        "sender": {"name": sender_name, "email": sender_email},
+        "to": [{"email": to_email, "name": user_name or to_email}],
+        "subject": subject,
+        "htmlContent": html_content,
+    }
+
+    req = urllib.request.Request(
+        url="https://api.brevo.com/v3/smtp/email",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "api-key": api_key,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "MediMall-Backend/1.0",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            status_code = response.getcode()
+            if 200 <= status_code < 300:
+                logger.info("Email sent via Brevo HTTPS API to %s (Subject: %s)", to_email, subject)
+                return True
+            res_body = response.read().decode("utf-8", errors="replace")
+            logger.error("Brevo API returned unexpected status %s: %s", status_code, res_body)
+            return False
+    except urllib.error.HTTPError as http_err:
+        err_content = http_err.read().decode("utf-8", errors="replace")
+        logger.error("Brevo HTTP error %s sending to %s: %s", http_err.code, to_email, err_content)
+        return False
+    except Exception as err:
+        logger.error("Failed to send email via Brevo to %s: %s", to_email, err)
+        return False
+
+
 def _get_active_provider() -> str:
-    """Determines which email provider to use: 'smtp', 'resend', or 'dev'."""
+    """Determines which email provider to use: 'brevo', 'smtp', 'resend', or 'dev'."""
     explicit = (settings.email_provider or "").strip().lower()
-    if explicit in ("smtp", "resend"):
+    if explicit in ("brevo", "smtp", "resend"):
         return explicit
-    # Auto-detection: prioritize SMTP if credentials provided, otherwise Resend
+    # Auto-detection priority:
+    if settings.brevo_api_key:
+        return "brevo"
     if settings.smtp_user and settings.smtp_password:
         return "smtp"
     if settings.resend_api_key:
@@ -192,7 +251,7 @@ def _get_active_provider() -> str:
 
 def send_verification_email(to_email: str, user_name: str, raw_token: str) -> bool:
     """
-    Sends a branded verification email to the user using the configured provider (SMTP or Resend).
+    Sends a branded verification email to the user using the configured provider (Brevo, SMTP, or Resend).
     If no provider is configured, logs the verification link to the console.
     """
     base_url = settings.frontend_url.rstrip("/")
@@ -202,7 +261,14 @@ def send_verification_email(to_email: str, user_name: str, raw_token: str) -> bo
 
     provider = _get_active_provider()
 
-    if provider == "smtp":
+    if provider == "brevo":
+        success = send_email_brevo(to_email=to_email, subject=subject, html_content=html_content, user_name=user_name)
+        if success:
+            return True
+        logger.info("[BREVO FALLBACK] Verification link for %s: %s", to_email, verification_url)
+        return False
+
+    elif provider == "smtp":
         success = send_email_smtp(to_email=to_email, subject=subject, html_content=html_content)
         if success:
             return True
@@ -334,7 +400,7 @@ def get_password_reset_email_html(user_name: str, reset_url: str) -> str:
 
 def send_password_reset_email(to_email: str, user_name: str, raw_token: str) -> bool:
     """
-    Sends a branded password reset email to the user using the configured provider (SMTP or Resend).
+    Sends a branded password reset email to the user using the configured provider (Brevo, SMTP, or Resend).
     If no provider is configured, logs the reset link to the console.
     """
     base_url = settings.frontend_url.rstrip("/")
@@ -344,7 +410,14 @@ def send_password_reset_email(to_email: str, user_name: str, raw_token: str) -> 
 
     provider = _get_active_provider()
 
-    if provider == "smtp":
+    if provider == "brevo":
+        success = send_email_brevo(to_email=to_email, subject=subject, html_content=html_content, user_name=user_name)
+        if success:
+            return True
+        logger.info("[BREVO FALLBACK] Password reset link for %s: %s", to_email, reset_url)
+        return False
+
+    elif provider == "smtp":
         success = send_email_smtp(to_email=to_email, subject=subject, html_content=html_content)
         if success:
             return True

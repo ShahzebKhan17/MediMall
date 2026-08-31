@@ -16,7 +16,11 @@ def main():
     provider = email_service._get_active_provider()
     print(f"Active Provider: {provider.upper()}")
     
-    if provider == "smtp":
+    if provider == "brevo":
+        print(f"  Brevo API Key configured: {'YES' if settings.brevo_api_key else 'NO'}")
+        print(f"  Brevo Sender Email: {settings.brevo_sender_email or settings.smtp_user}")
+        print(f"  Brevo Sender Name: {settings.brevo_sender_name}")
+    elif provider == "smtp":
         print(f"  SMTP Host: {settings.smtp_host}:{settings.smtp_port}")
         print(f"  SMTP User: {settings.smtp_user}")
         print(f"  SMTP From: {settings.smtp_from_email or settings.smtp_user}")
