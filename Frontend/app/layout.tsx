@@ -17,7 +17,21 @@ import { LocationProvider } from "./context/LocationContext";
 import { QueryProvider } from "../components/providers/QueryProvider";
 import { LocationModal } from "../components/ui/LocationModal";
 
-export const metadata: Metadata = { title: "MediMall — Medicine, nearby", description: "Your local pharmacy, delivered in minutes." };
+export const metadata: Metadata = {
+  title: "MediMall — Medicine, nearby",
+  description: "Your local pharmacy, delivered in minutes.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+  },
+};
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

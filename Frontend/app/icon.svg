@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="mmLeftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffa67e" />
+      <stop offset="100%" stop-color="#ff7948" />
+    </linearGradient>
+    <linearGradient id="mmRightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f05429" />
+      <stop offset="100%" stop-color="#d63a15" />
+    </linearGradient>
+    <clipPath id="badgeClip">
+      <rect x="0" y="0" width="64" height="64" rx="16" ry="16" />
+    </clipPath>
+    <clipPath id="leftHalf">
+      <polygon points="0,0 35,0 27,64 0,64" />
+    </clipPath>
+    <clipPath id="rightHalf">
+      <polygon points="35,0 64,0 64,64 27,64" />
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#badgeClip)">
+    <!-- Left Badge Slice -->
+    <rect x="0" y="0" width="64" height="64" fill="url(#mmLeftGrad)" clip-path="url(#leftHalf)" />
+    <!-- Right Badge Slice -->
+    <rect x="0" y="0" width="64" height="64" fill="url(#mmRightGrad)" clip-path="url(#rightHalf)" />
+
+    <!-- Left "M" -->
+    <path d="M 10 44 L 10 20 L 15.5 20 L 19.5 32 L 23.5 20 L 29 20 L 29 44 L 24.5 44 L 24.5 27 L 21 37.5 L 18 37.5 L 14.5 27 L 14.5 44 Z" fill="#FFFFFF" />
+
+    <!-- Right "M" -->
+    <path d="M 35 44 L 35 20 L 40.5 20 L 44.5 32 L 48.5 20 L 54 20 L 54 44 L 49.5 44 L 49.5 27 L 46 37.5 L 43 37.5 L 39.5 27 L 39.5 44 Z" fill="#FFFFFF" />
+
+    <!-- Medical Plus Accent Badge in top right corner -->
+    <circle cx="53" cy="11" r="6" fill="#143128" />
+    <path d="M 53 7.8 L 53 14.2 M 49.8 11 L 56.2 11" stroke="#34D399" stroke-width="2" stroke-linecap="round" />
+  </g>
+</svg>
