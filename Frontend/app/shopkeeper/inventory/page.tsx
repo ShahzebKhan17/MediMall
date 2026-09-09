@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Camera, Check, Image as ImageIcon, Loader2, Pill, Plus, RefreshCw, Search, ShieldCheck, Trash2, Upload, X } from "lucide-react";
+import { AlertCircle, Camera, Check, Image as ImageIcon, Loader2, Pill, Plus, RefreshCw, Search, ShieldCheck, SwitchCamera, Trash2, Upload, X } from "lucide-react";
 import { api, getMediaUrl } from "../../../lib/api";
 
 interface InventoryItem {
@@ -43,6 +43,94 @@ export default function ShopkeeperInventoryPage() {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Live Camera states
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const startCamera = async (facing: "environment" | "user" = facingMode) => {
+    setPhotoError(null);
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      setIsCameraActive(true);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: facing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch((err) => console.warn("Video play error:", err));
+      }
+    } catch (err: any) {
+      console.warn("Camera access error:", err);
+      setIsCameraActive(false);
+      setPhotoError("Unable to access camera. Please check browser permissions or upload an image file.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const switchFacingMode = async () => {
+    const nextMode = facingMode === "environment" ? "user" : "environment";
+    setFacingMode(nextMode);
+    if (isCameraActive) {
+      await startCamera(nextMode);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setPhotoError("Camera not ready yet, please wait a moment.");
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const capturedFile = new File([blob], `medicine_${Date.now()}.jpg`, {
+          type: "image/jpeg",
+        });
+        setSelectedFile(capturedFile);
+        const previewUrl = URL.createObjectURL(blob);
+        setImagePreview(previewUrl);
+        stopCamera();
+      },
+      "image/jpeg",
+      0.92
+    );
+  };
+
+  // Ensure camera stream is stopped when unmounting
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -107,6 +195,7 @@ export default function ShopkeeperInventoryPage() {
   };
 
   const removeSelectedPhoto = () => {
+    stopCamera();
     setSelectedFile(null);
     setImagePreview(null);
     setNewMed({ ...newMed, image_url: "" });
@@ -256,11 +345,29 @@ export default function ShopkeeperInventoryPage() {
             color: "#cf1322",
             display: "flex",
             alignItems: "center",
+            justifyContent: "space-between",
             gap: "10px",
             fontSize: "13px",
           }}
         >
-          <AlertCircle size={18} /> {fetchError}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <AlertCircle size={18} /> {fetchError}
+          </div>
+          <button
+            onClick={loadInventory}
+            style={{
+              background: "#cf1322",
+              color: "#fff",
+              border: 0,
+              padding: "5px 12px",
+              borderRadius: "5px",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -304,75 +411,199 @@ export default function ShopkeeperInventoryPage() {
             </div>
 
             <form onSubmit={handleCreateMedicine} style={{ display: "grid", gap: "12px", fontSize: "13px" }}>
-              {/* Photo Upload Section */}
-              <div style={{ background: "#f8faf9", border: "1px dashed #b6d3c6", borderRadius: "8px", padding: "14px", textAlign: "center" }}>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "8px", color: "#227f5e" }}>
-                  Product / Packaging Photo (Helps Customers Identify Medicine)
-                </label>
+              {/* Photo Upload / Camera Section */}
+              <div style={{ background: "#f8faf9", border: "1px dashed #b6d3c6", borderRadius: "10px", padding: "16px", textAlign: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginBottom: "8px" }}>
+                  <Camera size={16} color="#227f5e" />
+                  <label style={{ fontSize: "12px", fontWeight: 700, color: "#227f5e" }}>
+                    Medicine Packaging Photo (Live Camera or File)
+                  </label>
+                </div>
 
-                {imagePreview ? (
-                  <div style={{ position: "relative", display: "inline-block" }}>
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      style={{ width: "100px", height: "100px", objectFit: "cover", borderRadius: "8px", border: "1px solid #ccd8d1" }}
-                    />
-                    <button
-                      type="button"
-                      onClick={removeSelectedPhoto}
-                      style={{
-                        position: "absolute",
-                        top: "-6px",
-                        right: "-6px",
-                        background: "#ef4444",
-                        color: "#fff",
-                        border: 0,
-                        borderRadius: "50%",
-                        width: "20px",
-                        height: "20px",
-                        display: "grid",
-                        placeItems: "center",
-                        cursor: "pointer",
+                {/* If live camera is active */}
+                {isCameraActive ? (
+                  <div style={{ position: "relative", maxWidth: "340px", margin: "0 auto", borderRadius: "10px", overflow: "hidden", background: "#111", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
+                    <video
+                      ref={(el) => {
+                        videoRef.current = el;
+                        if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                          el.srcObject = streamRef.current;
+                          el.play().catch(() => {});
+                        }
                       }}
-                    >
-                      <X size={12} />
-                    </button>
+                      autoPlay
+                      playsInline
+                      muted
+                      style={{ width: "100%", height: "220px", objectFit: "cover", display: "block" }}
+                    />
+
+                    {/* Camera overlay header */}
+                    <div style={{ position: "absolute", top: "8px", left: "8px", right: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ background: "rgba(0,0,0,0.6)", color: "#fff", padding: "3px 8px", borderRadius: "12px", fontSize: "10px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#22c55e", display: "inline-block" }}></span>
+                        Live Camera
+                      </span>
+                      <button
+                        type="button"
+                        onClick={switchFacingMode}
+                        title="Switch Camera (Front / Back)"
+                        style={{ background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: "20px", padding: "4px 8px", fontSize: "11px", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
+                      >
+                        <SwitchCamera size={12} /> Flip
+                      </button>
+                    </div>
+
+                    {/* Camera capture controls footer */}
+                    <div style={{ padding: "10px", background: "rgba(0,0,0,0.75)", display: "flex", justifyContent: "center", gap: "12px", alignItems: "center" }}>
+                      <button
+                        type="button"
+                        onClick={capturePhoto}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "8px 18px",
+                          background: "#227f5e",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: "20px",
+                          fontWeight: 700,
+                          fontSize: "12px",
+                          cursor: "pointer",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                        }}
+                      >
+                        <Camera size={15} /> Snap Photo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        style={{
+                          padding: "8px 14px",
+                          background: "rgba(255,255,255,0.2)",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: "20px",
+                          fontSize: "12px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : imagePreview ? (
+                  /* Captured or Selected Preview */
+                  <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                    <div style={{ position: "relative", display: "inline-block" }}>
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        style={{ width: "110px", height: "110px", objectFit: "cover", borderRadius: "10px", border: "2px solid #227f5e", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={removeSelectedPhoto}
+                        title="Remove photo"
+                        style={{
+                          position: "absolute",
+                          top: "-8px",
+                          right: "-8px",
+                          background: "#ef4444",
+                          color: "#fff",
+                          border: 0,
+                          borderRadius: "50%",
+                          width: "22px",
+                          height: "22px",
+                          display: "grid",
+                          placeItems: "center",
+                          cursor: "pointer",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                        }}
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <span style={{ fontSize: "11px", color: "#227f5e", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <Check size={13} /> Ready to upload
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => startCamera(facingMode)}
+                        style={{ background: "none", border: "none", color: "#555", fontSize: "11px", textDecoration: "underline", cursor: "pointer" }}
+                      >
+                        Retake
+                      </button>
+                    </div>
                   </div>
                 ) : (
+                  /* Initial state: Live Camera or File Upload */
                   <div>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept="image/png, image/jpeg, image/jpg, image/webp"
-                      onChange={handlePhotoSelect}
-                      style={{ display: "none" }}
-                      id="med-photo-input"
-                    />
-                    <label
-                      htmlFor="med-photo-input"
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        padding: "8px 16px",
-                        background: "#ffffff",
-                        border: "1px solid #c2d6cd",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        color: "#227f5e",
-                      }}
-                    >
-                      <Camera size={16} /> Choose / Photograph Packaging
-                    </label>
-                    <small style={{ display: "block", color: "#82918b", fontSize: "10px", marginTop: "6px" }}>
-                      PNG, JPG, WEBP up to 10 MB
+                    <p style={{ color: "#66706c", fontSize: "12px", margin: "0 0 10px 0" }}>
+                      Take a direct snapshot with your camera or select an image file:
+                    </p>
+                    <div style={{ display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => startCamera(facingMode)}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "8px 14px",
+                          background: "#227f5e",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        <Camera size={16} /> Open Camera
+                      </button>
+
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/png, image/jpeg, image/jpg, image/webp"
+                        capture="environment"
+                        onChange={handlePhotoSelect}
+                        style={{ display: "none" }}
+                        id="med-photo-input"
+                      />
+                      <label
+                        htmlFor="med-photo-input"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "8px 14px",
+                          background: "#ffffff",
+                          border: "1px solid #c2d6cd",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "#227f5e",
+                        }}
+                      >
+                        <Upload size={16} /> Browse File
+                      </label>
+                    </div>
+                    <small style={{ display: "block", color: "#82918b", fontSize: "10px", marginTop: "8px" }}>
+                      Supports webcam, mobile rear camera (environment), or PNG/JPG file up to 10 MB
                     </small>
                   </div>
                 )}
 
-                {photoError && <small style={{ color: "#cf1322", display: "block", marginTop: "4px" }}>{photoError}</small>}
+                {photoError && (
+                  <small style={{ color: "#cf1322", display: "block", marginTop: "8px", fontWeight: 500 }}>
+                    {photoError}
+                  </small>
+                )}
               </div>
 
               <div>
