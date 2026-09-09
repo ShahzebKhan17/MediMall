@@ -22,9 +22,14 @@ interface ShopkeeperContextProps {
   reassignOrder: (orderId: string) => Promise<void>;
   soundEnabled: boolean;
   isAudioRinging: boolean;
+  autoplayBlocked: boolean;
+  desktopNotificationPermission: NotificationPermission | "unsupported";
   toggleSound: () => void;
   silenceAlert: () => void;
   testSound: () => void;
+  unlockAudio: () => void;
+  requestNotificationPermission: () => Promise<NotificationPermission | "unsupported">;
+  sendTestNotification: () => void;
 }
 
 const ShopkeeperContext = createContext<ShopkeeperContextProps>({
@@ -34,26 +39,45 @@ const ShopkeeperContext = createContext<ShopkeeperContextProps>({
   reassignOrder: async () => {},
   soundEnabled: true,
   isAudioRinging: false,
+  autoplayBlocked: false,
+  desktopNotificationPermission: "default",
   toggleSound: () => {},
   silenceAlert: () => {},
   testSound: () => {},
+  unlockAudio: () => {},
+  requestNotificationPermission: async () => "default",
+  sendTestNotification: () => {},
 });
 
 export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) => {
   const { orders, updateOrderStatus, refreshOrders } = useAppContext();
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isAudioRinging, setIsAudioRinging] = useState<boolean>(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState<boolean>(false);
+  const [desktopNotificationPermission, setDesktopNotificationPermission] = useState<NotificationPermission | "unsupported">("default");
   
-  // Keep track of orders that have already been acknowledged to avoid re-ringing constantly for old orders
+  // Keep track of orders that have already been acknowledged or notified
   const acknowledgedOrderIdsRef = useRef<Set<string>>(new Set());
+  const notifiedOrderIdsRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const originalTitleRef = useRef<string>("");
 
-  // Initialize Audio instance on mount
+  // Initialize Audio instance and check notification permission on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedPref = localStorage.getItem("medimall_shopkeeper_audio_alert");
       if (savedPref !== null) {
         setSoundEnabled(savedPref === "true");
+      }
+
+      if ("Notification" in window) {
+        setDesktopNotificationPermission(Notification.permission);
+      } else {
+        setDesktopNotificationPermission("unsupported");
+      }
+
+      if (document.title) {
+        originalTitleRef.current = document.title;
       }
 
       const audio = new Audio("/sounds/order_urgent.wav");
@@ -67,6 +91,103 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
       };
     }
   }, []);
+
+  // Unlock audio proactively on first user click/tap/keypress
+  const unlockAudio = () => {
+    if (audioRef.current) {
+      // Calling load/play within a user event unlocks the browser audio context
+      setAutoplayBlocked(false);
+      const hasUnack = orders.some(
+        (o) =>
+          (o.status === "Placed" || o.status === "Review") &&
+          !acknowledgedOrderIdsRef.current.has(o.id)
+      );
+      if (hasUnack && soundEnabled && audioRef.current.paused) {
+        audioRef.current.play().then(() => {
+          setIsAudioRinging(true);
+          setAutoplayBlocked(false);
+        }).catch((err) => {
+          console.warn("Audio play still restricted:", err);
+          setAutoplayBlocked(true);
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleFirstUserGesture = () => {
+      unlockAudio();
+    };
+
+    window.addEventListener("click", handleFirstUserGesture, { once: true });
+    window.addEventListener("keydown", handleFirstUserGesture, { once: true });
+    window.addEventListener("touchstart", handleFirstUserGesture, { once: true });
+
+    return () => {
+      window.removeEventListener("click", handleFirstUserGesture);
+      window.removeEventListener("keydown", handleFirstUserGesture);
+      window.removeEventListener("touchstart", handleFirstUserGesture);
+    };
+  }, [orders, soundEnabled]);
+
+  // Request browser desktop notification permission
+  const requestNotificationPermission = async (): Promise<NotificationPermission | "unsupported"> => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setDesktopNotificationPermission("unsupported");
+      return "unsupported";
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      setDesktopNotificationPermission(permission);
+      if (permission === "granted") {
+        try {
+          new Notification("🔔 MediMall Desktop Alerts Active", {
+            body: "You will receive persistent alerts here whenever a patient places an order.",
+            icon: "/icon.png",
+          });
+        } catch (e) {
+          console.warn("Notification display error:", e);
+        }
+      }
+      return permission;
+    } catch (err) {
+      console.error("Failed to request notification permission:", err);
+      return "denied";
+    }
+  };
+
+  // Trigger test notification
+  const sendTestNotification = () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      alert("Desktop notifications are not supported in this browser.");
+      return;
+    }
+
+    if (Notification.permission !== "granted") {
+      requestNotificationPermission();
+      return;
+    }
+
+    try {
+      const testNotif = new Notification("🚨 MediMall Test Order Alert", {
+        body: "Patient: Test Customer\nOrder: Paracetamol 650mg x2\nClick to focus and confirm order!",
+        icon: "/icon.png",
+        badge: "/icon.png",
+        tag: "medimall-test-alert",
+        requireInteraction: true,
+      });
+
+      testNotif.onclick = () => {
+        window.focus();
+        testNotif.close();
+      };
+    } catch (err) {
+      console.warn("Test notification error:", err);
+    }
+  };
 
   // Poll orders periodically
   useEffect(() => {
@@ -103,14 +224,43 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
         !acknowledgedOrderIdsRef.current.has(o.id)
     );
 
-    if (unacknowledgedOrders.length > 0 && soundEnabled) {
-      // Start ringing loop if not already ringing
-      if (audioRef.current && audioRef.current.paused) {
-        audioRef.current.play().then(() => {
-          setIsAudioRinging(true);
-        }).catch((err) => {
-          console.warn("Audio autoplay blocked by browser until user interaction:", err);
+    if (unacknowledgedOrders.length > 0) {
+      // 1. Send Desktop Notification if permitted and not yet notified
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        unacknowledgedOrders.forEach((order) => {
+          if (!notifiedOrderIdsRef.current.has(order.id)) {
+            notifiedOrderIdsRef.current.add(order.id);
+            try {
+              const notif = new Notification(`🚨 Urgent MediMall Order #${order.id.slice(-6)}`, {
+                body: `Patient: ${order.name}\n${order.itemsSummary || "Prescription awaiting review"}\nClick to view and confirm!`,
+                icon: "/icon.png",
+                badge: "/icon.png",
+                tag: `medimall-order-${order.id}`,
+                requireInteraction: true,
+              });
+
+              notif.onclick = () => {
+                window.focus();
+                notif.close();
+              };
+            } catch (err) {
+              console.warn("Desktop notification trigger error:", err);
+            }
+          }
         });
+      }
+
+      // 2. Start ringing loop if sound enabled
+      if (soundEnabled) {
+        if (audioRef.current && audioRef.current.paused) {
+          audioRef.current.play().then(() => {
+            setIsAudioRinging(true);
+            setAutoplayBlocked(false);
+          }).catch((err) => {
+            console.warn("Audio autoplay blocked by browser until user interaction:", err);
+            setAutoplayBlocked(true);
+          });
+        }
       }
     } else {
       // Stop ringing if no pending unacknowledged orders
@@ -119,8 +269,45 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
         audioRef.current.currentTime = 0;
       }
       setIsAudioRinging(false);
+      setAutoplayBlocked(false);
     }
   }, [orders, soundEnabled]);
+
+  // Tab Title Flashing effect when alert is ringing
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!originalTitleRef.current && document.title && !document.title.includes("🚨") && !document.title.includes("🔔")) {
+      originalTitleRef.current = document.title;
+    }
+
+    if (isAudioRinging || autoplayBlocked) {
+      let flash = false;
+      const unackCount = orders.filter(
+        (o) =>
+          (o.status === "Placed" || o.status === "Review") &&
+          !acknowledgedOrderIdsRef.current.has(o.id)
+      ).length || 1;
+
+      const titleInterval = setInterval(() => {
+        flash = !flash;
+        document.title = flash
+          ? `🚨 (${unackCount}) NEW ORDER! - MediMall`
+          : `🔔 ACTION REQUIRED - MediMall`;
+      }, 1000);
+
+      return () => {
+        clearInterval(titleInterval);
+        if (originalTitleRef.current) {
+          document.title = originalTitleRef.current;
+        }
+      };
+    } else {
+      if (originalTitleRef.current && (document.title.includes("🚨") || document.title.includes("🔔"))) {
+        document.title = originalTitleRef.current;
+      }
+    }
+  }, [isAudioRinging, autoplayBlocked, orders]);
 
   const silenceAlert = () => {
     if (audioRef.current) {
@@ -128,6 +315,7 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
       audioRef.current.currentTime = 0;
     }
     setIsAudioRinging(false);
+    setAutoplayBlocked(false);
 
     // Mark all current Placed / Review orders as acknowledged
     orders.forEach((o) => {
@@ -135,6 +323,10 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
         acknowledgedOrderIdsRef.current.add(o.id);
       }
     });
+
+    if (originalTitleRef.current) {
+      document.title = originalTitleRef.current;
+    }
   };
 
   const toggleSound = () => {
@@ -147,6 +339,7 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
         setIsAudioRinging(false);
+        setAutoplayBlocked(false);
       }
       return next;
     });
@@ -156,7 +349,10 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
     if (typeof window !== "undefined") {
       const testAudio = new Audio("/sounds/order_urgent.wav");
       testAudio.loop = false;
-      testAudio.play().catch((err) => console.warn("Test audio error:", err));
+      testAudio.play().catch((err) => {
+        console.warn("Test audio error:", err);
+        setAutoplayBlocked(true);
+      });
     }
   };
 
@@ -175,6 +371,7 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
         setIsAudioRinging(false);
+        setAutoplayBlocked(false);
       }
     }
 
@@ -230,9 +427,14 @@ export const ShopkeeperProvider = ({ children }: { children: React.ReactNode }) 
         reassignOrder,
         soundEnabled,
         isAudioRinging,
+        autoplayBlocked,
+        desktopNotificationPermission,
         toggleSound,
         silenceAlert,
         testSound,
+        unlockAudio,
+        requestNotificationPermission,
+        sendTestNotification,
       }}
     >
       {children}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { HeartPulse, Save, User } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 
@@ -9,13 +9,26 @@ export default function PatientProfilePage() {
 
   // Inputs
   const [name, setName] = useState(user?.name || "");
-  const [age, setAge] = useState(user?.age.toString() || "");
+  const [age, setAge] = useState(user?.age ? user.age.toString() : "");
   const [gender, setGender] = useState(user?.gender || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [email, setEmail] = useState(user?.email || "");
   const [bloodGroup, setBloodGroup] = useState(user?.bloodGroup || "");
   const [allergies, setAllergies] = useState(user?.allergies || "");
   const [address, setAddress] = useState(user?.address || "");
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setAge(user.age ? user.age.toString() : "");
+      setGender(user.gender || "");
+      setPhone(user.phone || "");
+      setEmail(user.email || "");
+      setBloodGroup(user.bloodGroup || "");
+      setAllergies(user.allergies || "");
+      setAddress(user.address || "");
+    }
+  }, [user]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();

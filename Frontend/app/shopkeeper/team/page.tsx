@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserRound, Plus, ShieldCheck, Mail, Phone, Trash2, CheckCircle2, UserCheck } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 
@@ -17,33 +17,34 @@ interface TeamMember {
 export default function ShopkeeperTeamPage() {
   const { user } = useAppContext();
 
-  const [members, setMembers] = useState<TeamMember[]>([
-    {
-      id: "1",
-      name: user?.name || "Pharmacist in-charge",
-      role: "Chief Pharmacist",
-      email: user?.email || "pharmacist@medimall.in",
-      phone: user?.phone || "+919795406782",
-      status: "On Shift",
-      isPrimary: true,
-    },
-    {
-      id: "2",
-      name: "Suresh Reddy",
-      role: "Dispensing Pharmacist",
-      email: "suresh.reddy@pharmamail.in",
-      phone: "+91 98450 11223",
-      status: "Active",
-    },
-    {
-      id: "3",
-      name: "Pooja Verma",
-      role: "Billing Staff",
-      email: "pooja.v@pharmamail.in",
-      phone: "+91 97312 44556",
-      status: "Offline",
-    },
-  ]);
+  // Initialize primary member from authenticated user
+  const primaryMember: TeamMember = {
+    id: "primary",
+    name: user?.name || "Pharmacist in-charge",
+    role: "Chief Pharmacist",
+    email: user?.email || "",
+    phone: user?.phone || "",
+    status: "On Shift",
+    isPrimary: true,
+  };
+
+  const [members, setMembers] = useState<TeamMember[]>([primaryMember]);
+  const storageKey = user?.email ? `medimall_pharmacy_team_${user.email}` : "medimall_pharmacy_team_default";
+
+  // Load persisted invited members on mount/user change
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed: TeamMember[] = JSON.parse(saved);
+        setMembers([primaryMember, ...parsed.filter(m => !m.isPrimary)]);
+      } else {
+        setMembers([primaryMember]);
+      }
+    } catch {
+      setMembers([primaryMember]);
+    }
+  }, [user?.email, user?.name, user?.phone]);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [newName, setNewName] = useState("");
@@ -57,14 +58,22 @@ export default function ShopkeeperTeamPage() {
 
     const newMember: TeamMember = {
       id: Date.now().toString(),
-      name: newName,
+      name: newName.trim(),
       role: newRole,
-      email: newEmail,
-      phone: newPhone || "+91 99000 00000",
+      email: newEmail.trim(),
+      phone: newPhone.trim(),
       status: "Active",
     };
 
-    setMembers([...members, newMember]);
+    const updated = [...members, newMember];
+    setMembers(updated);
+    try {
+      const additional = updated.filter(m => !m.isPrimary);
+      localStorage.setItem(storageKey, JSON.stringify(additional));
+    } catch (err) {
+      console.warn("Could not persist team member:", err);
+    }
+
     setNewName("");
     setNewEmail("");
     setNewPhone("");
@@ -72,7 +81,14 @@ export default function ShopkeeperTeamPage() {
   };
 
   const handleRemoveMember = (id: string) => {
-    setMembers(members.filter((m) => m.id !== id));
+    const updated = members.filter((m) => m.id !== id);
+    setMembers(updated);
+    try {
+      const additional = updated.filter(m => !m.isPrimary);
+      localStorage.setItem(storageKey, JSON.stringify(additional));
+    } catch (err) {
+      console.warn("Could not update team members in storage:", err);
+    }
   };
 
   return (
@@ -209,6 +225,44 @@ export default function ShopkeeperTeamPage() {
           </div>
         ))}
       </div>
+
+      {members.length === 1 && (
+        <div
+          style={{
+            marginTop: "20px",
+            padding: "20px",
+            background: "#f9fbfa",
+            border: "1px dashed #c2d6ce",
+            borderRadius: "10px",
+            textAlign: "center",
+            color: "#6b8077",
+          }}
+        >
+          <UserRound size={28} style={{ margin: "0 auto 8px auto", color: "#227f5e" }} />
+          <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#142921" }}>No additional staff members added yet</p>
+          <p style={{ margin: "4px 0 12px 0", fontSize: "12px" }}>
+            Add dispensing pharmacists, counter assistants, or delivery riders to collaborate on fulfilling patient orders.
+          </p>
+          <button
+            onClick={() => setShowInviteModal(true)}
+            style={{
+              background: "#227f5e",
+              color: "#fff",
+              border: 0,
+              padding: "8px 16px",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <Plus size={14} /> Add First Staff Member
+          </button>
+        </div>
+      )}
 
       {/* Invite Modal */}
       {showInviteModal && (

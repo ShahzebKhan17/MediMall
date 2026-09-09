@@ -65,7 +65,14 @@ export default function CheckoutPage() {
 
     // Generate unique idempotency key for this checkout attempt
     const idempotencyKey = `idem_${Math.random().toString(36).substring(2, 11)}_${Date.now()}`;
-    const deliveryAddress = addressInput || user?.address || "Indiranagar, Bengaluru";
+    const deliveryAddress = (addressInput || user?.address || "").trim();
+
+    if (!deliveryAddress) {
+      setOrderError("Please provide a delivery address to place your order.");
+      setIsSubmitting(false);
+      return;
+    }
+
     const orderItemsPayload = cart.map((c) => ({ medicine_id: c.id, quantity: c.quantity }));
 
     // If COD, use direct order placement with Idempotency Key
@@ -242,7 +249,7 @@ export default function CheckoutPage() {
                   ) : (
                     <p>{user?.address || "Please set your delivery address."}</p>
                   )}
-                  <small>{user?.phone || "+91 98765 43210"}</small>
+                  {user?.phone ? <small>{user.phone}</small> : null}
                 </div>
               </div>
             </div>

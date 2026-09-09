@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Settings, Save, Store, ShieldCheck, MapPin, Phone, Clock, Bell, CreditCard, AlertCircle } from "lucide-react";
+import { Settings, Save, Store, ShieldCheck, MapPin, Phone, Clock, Bell, CreditCard, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
+import { evaluatePharmacyEligibility } from "../../../lib/pharmacyValidation";
 
 export default function ShopSettingsPage() {
   const { user, updateProfile } = useAppContext();
+  const eligibility = evaluatePharmacyEligibility(user);
 
   const [storeName, setStoreName] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
@@ -49,27 +51,52 @@ export default function ShopSettingsPage() {
     e.preventDefault();
     setFormError(null);
 
-    // Validate account number match if provided
-    if (accountNumber && confirmAccountNumber && accountNumber !== confirmAccountNumber) {
+    // Validate that NO required field is left empty
+    const missing: string[] = [];
+    if (!storeName.trim()) missing.push("Pharmacy Business Name");
+    if (!licenseNumber.trim()) missing.push("Drug License Number");
+    if (!phone.trim()) missing.push("Store Contact Phone");
+    if (!email.trim()) missing.push("Official Email");
+    if (!address.trim()) missing.push("Physical Store Address");
+    if (!beneficiaryName.trim()) missing.push("Beneficiary Name");
+    if (!bankName.trim()) missing.push("Bank Name");
+    if (!accountNumber.trim()) missing.push("Bank Account Number");
+    if (!confirmAccountNumber.trim()) missing.push("Confirm Account Number");
+    if (!ifscCode.trim()) missing.push("Bank IFSC Code");
+    if (!upiPayout.trim()) missing.push("Settlement UPI ID");
+
+    if (missing.length > 0) {
+      setFormError(`All credentials must be filled to qualify for orders. Missing: ${missing.join(", ")}.`);
+      return;
+    }
+
+    // Validate account number match
+    if (accountNumber.trim() !== confirmAccountNumber.trim()) {
       setFormError("Bank account numbers do not match. Please re-check.");
       return;
     }
 
-    // Validate IFSC code format if provided
+    // Validate IFSC code format (11 characters)
     const cleanIfsc = ifscCode.trim().toUpperCase();
-    if (cleanIfsc && cleanIfsc.length !== 11) {
+    if (cleanIfsc.length !== 11) {
       setFormError("IFSC code must be exactly 11 alphanumeric characters (e.g., HDFC0001234).");
+      return;
+    }
+
+    // Validate UPI ID format
+    if (!upiPayout.trim().includes("@")) {
+      setFormError("UPI ID must be a valid Virtual Payment Address containing '@' (e.g. pharmacy@okaxis, store@upi).");
       return;
     }
 
     setIsSaving(true);
     try {
       await updateProfile({
-        name: storeName,
-        phone,
-        email,
-        address,
-        medical_license: licenseNumber,
+        name: storeName.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        address: address.trim(),
+        medical_license: licenseNumber.trim(),
         bankBeneficiaryName: beneficiaryName.trim(),
         bankAccountNumber: accountNumber.trim(),
         bankIfscCode: cleanIfsc,
@@ -77,7 +104,7 @@ export default function ShopSettingsPage() {
         upiId: upiPayout.trim(),
       });
       setSavedMessage(true);
-      setTimeout(() => setSavedMessage(false), 4000);
+      setTimeout(() => setSavedMessage(false), 5000);
     } catch (err: any) {
       console.error("Save settings failed:", err);
       setFormError(err?.message || "Failed to update store settings. Please try again.");
@@ -92,9 +119,96 @@ export default function ShopSettingsPage() {
         <div>
           <p>PHARMACY PREFERENCES</p>
           <h1>Shop Settings</h1>
-          <h2>Configure store information, drug license details, dispatch radius, and payout bank accounts.</h2>
+          <h2>Configure store credentials, drug license details, dispatch radius, and settlement bank accounts.</h2>
         </div>
       </div>
+
+      {/* Live Order Eligibility Banner */}
+      {eligibility.isEligible ? (
+        <div
+          style={{
+            background: "#e6f7ef",
+            border: "1px solid #a3e0c4",
+            color: "#186349",
+            padding: "14px 18px",
+            borderRadius: "10px",
+            marginBottom: "20px",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            fontSize: "13px",
+            fontWeight: 600,
+          }}
+        >
+          <CheckCircle2 size={20} color="#186349" />
+          <div>
+            <b>Pharmacy Verified & Active:</b> All required store and banking credentials are complete. Your store is fully eligible and taking customer orders.
+          </div>
+        </div>
+      ) : !eligibility.isEmailVerified ? (
+        <div
+          style={{
+            background: "#fffbe6",
+            border: "1px solid #ffe58f",
+            color: "#ad6800",
+            padding: "14px 18px",
+            borderRadius: "10px",
+            marginBottom: "20px",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            fontSize: "13px",
+            fontWeight: 600,
+          }}
+        >
+          <AlertCircle size={20} color="#ad6800" />
+          <div>
+            <b>Email Verification Required:</b> Please verify your email first before your store can become active to receive orders.
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            background: "#fff7e6",
+            border: "1px solid #ffd591",
+            color: "#d46b08",
+            padding: "14px 18px",
+            borderRadius: "10px",
+            marginBottom: "20px",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "12px",
+            fontSize: "13px",
+          }}
+        >
+          <AlertCircle size={20} color="#d46b08" style={{ marginTop: "2px", flexShrink: 0 }} />
+          <div>
+            <b style={{ display: "block", fontSize: "14px", marginBottom: "4px" }}>
+              Action Required to Receive Orders ({eligibility.missingFields.length} fields missing)
+            </b>
+            <span style={{ color: "#874d00", fontSize: "12px" }}>
+              MediMall assigns orders only to fully verified pharmacies. Please fill in all credentials below (no field can be left empty):
+            </span>
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}>
+              {eligibility.missingFields.map((field) => (
+                <span
+                  key={field}
+                  style={{
+                    background: "#ffe7ba",
+                    color: "#ad4e00",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                  }}
+                >
+                  • {field}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {savedMessage && (
         <div
@@ -148,7 +262,7 @@ export default function ShopSettingsPage() {
             <div style={{ display: "grid", gap: "14px" }}>
               <div>
                 <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                  Pharmacy / Store Business Name
+                  Pharmacy / Store Business Name <span style={{ color: "#cf1322" }}>*</span>
                 </label>
                 <input
                   style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
@@ -162,7 +276,7 @@ export default function ShopSettingsPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                    Drug License Number (Form 20/21)
+                    Drug License Number (Form 20/21) <span style={{ color: "#cf1322" }}>*</span>
                   </label>
                   <input
                     style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
@@ -174,7 +288,7 @@ export default function ShopSettingsPage() {
                 </div>
                 <div>
                   <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                    Store Contact Phone
+                    Store Contact Phone <span style={{ color: "#cf1322" }}>*</span>
                   </label>
                   <input
                     style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
@@ -188,7 +302,7 @@ export default function ShopSettingsPage() {
 
               <div>
                 <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                  Official Email Address
+                  Official Email Address <span style={{ color: "#cf1322" }}>*</span>
                 </label>
                 <input
                   style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
@@ -201,7 +315,7 @@ export default function ShopSettingsPage() {
 
               <div>
                 <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                  Physical Store Address (For Hyperlocal Delivery Routing)
+                  Physical Store Address (For Hyperlocal Delivery Routing) <span style={{ color: "#cf1322" }}>*</span>
                 </label>
                 <textarea
                   rows={3}
@@ -229,24 +343,26 @@ export default function ShopSettingsPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                    Account Holder / Beneficiary Name
+                    Account Holder / Beneficiary Name <span style={{ color: "#cf1322" }}>*</span>
                   </label>
                   <input
                     style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
                     value={beneficiaryName}
                     onChange={(e) => setBeneficiaryName(e.target.value)}
                     placeholder="Name matching bank records"
+                    required
                   />
                 </div>
                 <div>
                   <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                    Bank Name
+                    Bank Name <span style={{ color: "#cf1322" }}>*</span>
                   </label>
                   <input
                     style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
                     placeholder="e.g. HDFC Bank, SBI, ICICI"
+                    required
                   />
                 </div>
               </div>
@@ -254,7 +370,7 @@ export default function ShopSettingsPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                    Bank Account Number
+                    Bank Account Number <span style={{ color: "#cf1322" }}>*</span>
                   </label>
                   <input
                     type="password"
@@ -262,11 +378,12 @@ export default function ShopSettingsPage() {
                     value={accountNumber}
                     onChange={(e) => setAccountNumber(e.target.value)}
                     placeholder="Enter account number"
+                    required
                   />
                 </div>
                 <div>
                   <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                    Confirm Account Number
+                    Confirm Account Number <span style={{ color: "#cf1322" }}>*</span>
                   </label>
                   <input
                     type="text"
@@ -274,6 +391,7 @@ export default function ShopSettingsPage() {
                     value={confirmAccountNumber}
                     onChange={(e) => setConfirmAccountNumber(e.target.value)}
                     placeholder="Re-enter account number"
+                    required
                   />
                 </div>
               </div>
@@ -281,7 +399,7 @@ export default function ShopSettingsPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                    IFSC Code
+                    IFSC Code <span style={{ color: "#cf1322" }}>*</span>
                   </label>
                   <input
                     style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none", textTransform: "uppercase" }}
@@ -289,20 +407,22 @@ export default function ShopSettingsPage() {
                     onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
                     placeholder="e.g. HDFC0001234"
                     maxLength={11}
+                    required
                   />
                   <small style={{ color: "#7a9187", fontSize: "10px", marginTop: "2px", display: "block" }}>11-character Indian banking code</small>
                 </div>
                 <div>
                   <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                    Instant Settlement UPI VPA / ID (Optional)
+                    Settlement UPI VPA / ID <span style={{ color: "#cf1322" }}>*</span>
                   </label>
                   <input
                     style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
                     value={upiPayout}
                     onChange={(e) => setUpiPayout(e.target.value)}
                     placeholder="storename@okaxis or store@icici"
+                    required
                   />
-                  <small style={{ color: "#7a9187", fontSize: "10px", marginTop: "2px", display: "block" }}>For instant UPI credit settlements</small>
+                  <small style={{ color: "#7a9187", fontSize: "10px", marginTop: "2px", display: "block" }}>For verified instant settlements</small>
                 </div>
               </div>
 

@@ -25,13 +25,40 @@ from app import schemas
 router = APIRouter()
 
 
+def is_pharmacy_eligible_for_orders(pharm: User) -> bool:
+    """A pharmacy is eligible to receive patient orders only if:
+    1. Email is verified.
+    2. Store credentials (name, phone, address, medical_license) are filled.
+    3. All payout & settlement details (beneficiary name, bank name, account number, IFSC, UPI ID) are filled.
+    No input field can be left empty.
+    """
+    if not getattr(pharm, "is_email_verified", False):
+        return False
+
+    required_attributes = [
+        pharm.name,
+        pharm.phone,
+        pharm.address,
+        pharm.medical_license,
+        pharm.bank_beneficiary_name,
+        pharm.bank_name,
+        pharm.bank_account_number,
+        pharm.bank_ifsc_code,
+        pharm.upi_id,
+    ]
+    for val in required_attributes:
+        if not val or not str(val).strip():
+            return False
+    return True
+
+
 def get_assigned_pharmacy(
     db: Session,
     patient_lat: float,
     patient_lng: float,
     exclude_pharmacy_ids: Optional[List[str]] = None
 ) -> Optional[User]:
-    query = db.query(User).filter(User.role == "pharmacy")
+    query = db.query(User).filter(User.role == "pharmacy", User.is_email_verified == True)
     if exclude_pharmacy_ids:
         query = query.filter(~User.id.in_(exclude_pharmacy_ids))
     
@@ -39,8 +66,13 @@ def get_assigned_pharmacy(
     if not pharmacies:
         return None
 
+    # Filter to only pharmacies that have filled all required credentials
+    eligible_pharmacies = [p for p in pharmacies if is_pharmacy_eligible_for_orders(p)]
+    if not eligible_pharmacies:
+        return None
+
     pharmacy_distances = []
-    for pharm in pharmacies:
+    for pharm in eligible_pharmacies:
         p_lat = pharm.latitude if pharm.latitude is not None else 12.9716
         p_lng = pharm.longitude if pharm.longitude is not None else 77.5946
         dist = haversine_distance(patient_lat, patient_lng, p_lat, p_lng)

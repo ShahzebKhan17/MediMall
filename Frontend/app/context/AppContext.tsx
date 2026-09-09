@@ -21,6 +21,8 @@ import {
 export type { Medicine, CartItem };
 
 export interface OrderItem {
+  id?: number;
+  medicineId?: number;
   name: string;
   brand: string;
   price: number;
@@ -120,13 +122,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const me = userQuery.data;
     return {
       name: me.name || "Customer",
-      age: me.age || 28,
-      gender: me.gender || "Not specified",
+      age: me.age || 0,
+      gender: me.gender || "",
       email: me.email,
       phone: me.phone || "",
       address: me.address || "",
-      allergies: me.allergies || "No known allergies",
-      bloodGroup: me.blood_group || "O+",
+      allergies: me.allergies || "",
+      bloodGroup: me.blood_group || "",
       role: (me.role as "patient" | "pharmacy") || "patient",
       medical_license: me.medical_license,
       is_email_verified: me.is_email_verified ?? false,
@@ -148,6 +150,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     if (!ordersQuery.data) return [];
     return ordersQuery.data.map((bo) => {
       const itemsList: OrderItem[] = (bo.items || []).map((bi) => ({
+        id: bi.id,
+        medicineId: bi.medicine_id,
         name: bi.name || "Medicine",
         brand: bi.brand || "Generic",
         price: bi.price || 0,
@@ -296,6 +300,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       blood_group: profile.bloodGroup,
       age: profile.age,
       gender: profile.gender,
+      medical_license: profile.medical_license,
       bank_beneficiary_name: profile.bankBeneficiaryName,
       bank_account_number: profile.bankAccountNumber,
       bank_ifsc_code: profile.bankIfscCode,

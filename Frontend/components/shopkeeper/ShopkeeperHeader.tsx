@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, BellOff, Menu, Search, Volume2, LogOut, Settings, UserRound, ShieldCheck } from "lucide-react";
+import { Bell, BellOff, Menu, Search, Volume2, LogOut, Settings, UserRound, ShieldCheck, Monitor, AlertTriangle, CheckCircle2 } from "lucide-react";
 import ThemeToggle from "../ui/ThemeToggle";
 import { useShopkeeper } from "../../app/shopkeeper/ShopkeeperContext";
 import { useAppContext } from "../../app/context/AppContext";
@@ -13,7 +13,18 @@ interface ShopkeeperHeaderProps {
 
 export default function ShopkeeperHeader({ onMenuClick }: ShopkeeperHeaderProps) {
   const router = useRouter();
-  const { soundEnabled, isAudioRinging, toggleSound, silenceAlert, testSound } = useShopkeeper();
+  const {
+    soundEnabled,
+    isAudioRinging,
+    autoplayBlocked,
+    desktopNotificationPermission,
+    toggleSound,
+    silenceAlert,
+    testSound,
+    unlockAudio,
+    requestNotificationPermission,
+    sendTestNotification,
+  } = useShopkeeper();
   const { user, logout } = useAppContext();
   const [showSoundMenu, setShowSoundMenu] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -47,13 +58,15 @@ export default function ShopkeeperHeader({ onMenuClick }: ShopkeeperHeaderProps)
       <div className="shop-actions">
         <ThemeToggle />
 
-        {/* Audio Alert Bell & Quick Settings */}
+        {/* Audio & Desktop Alerts Bell & Quick Settings */}
         <div style={{ position: "relative" }}>
           <button
             className={`bell ${isAudioRinging ? "ringing-active" : ""}`}
             onClick={() => {
               if (isAudioRinging) {
                 silenceAlert();
+              } else if (autoplayBlocked) {
+                unlockAudio();
               } else {
                 setShowSoundMenu(!showSoundMenu);
                 setShowProfileMenu(false);
@@ -62,16 +75,34 @@ export default function ShopkeeperHeader({ onMenuClick }: ShopkeeperHeaderProps)
             title={
               isAudioRinging
                 ? "🚨 Incoming Order Ringing! Click to Silence"
+                : autoplayBlocked
+                ? "⚠️ Audio blocked by browser! Click to enable sound"
                 : soundEnabled
-                ? "Audio Alerts: ON (Click for options)"
+                ? "Audio & Push Alerts: ON (Click for options)"
                 : "Audio Alerts: MUTED (Click to enable)"
             }
             style={{
               cursor: "pointer",
               position: "relative",
-              border: isAudioRinging ? "1px solid #e15241" : "1px solid #e1e9e4",
-              background: isAudioRinging ? "#ffebe8" : soundEnabled ? "#eaf5ef" : "#f5f5f5",
-              color: isAudioRinging ? "#d93826" : soundEnabled ? "#278561" : "#888",
+              border: isAudioRinging
+                ? "1px solid #e15241"
+                : autoplayBlocked
+                ? "1px solid #faad14"
+                : "1px solid #e1e9e4",
+              background: isAudioRinging
+                ? "#ffebe8"
+                : autoplayBlocked
+                ? "#fffbe6"
+                : soundEnabled
+                ? "#eaf5ef"
+                : "#f5f5f5",
+              color: isAudioRinging
+                ? "#d93826"
+                : autoplayBlocked
+                ? "#d48806"
+                : soundEnabled
+                ? "#278561"
+                : "#888",
               borderRadius: "8px",
               padding: "7px 10px",
               display: "flex",
@@ -82,13 +113,21 @@ export default function ShopkeeperHeader({ onMenuClick }: ShopkeeperHeaderProps)
               transition: "all 0.2s ease",
             }}
           >
-            {soundEnabled ? (
+            {autoplayBlocked ? (
+              <AlertTriangle size={17} color="#d48806" />
+            ) : soundEnabled ? (
               <Bell size={17} className={isAudioRinging ? "bell-vibrate" : ""} />
             ) : (
               <BellOff size={17} />
             )}
             <span style={{ fontSize: "11px" }}>
-              {isAudioRinging ? "Mute Alert" : soundEnabled ? "Chime ON" : "Muted"}
+              {isAudioRinging
+                ? "Mute Alert"
+                : autoplayBlocked
+                ? "Enable Sound"
+                : soundEnabled
+                ? "Alerts ON"
+                : "Muted"}
             </span>
           </button>
 
@@ -102,65 +141,148 @@ export default function ShopkeeperHeader({ onMenuClick }: ShopkeeperHeaderProps)
                 border: "1px solid #dfe8e3",
                 boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
                 borderRadius: "10px",
-                padding: "12px 14px",
-                width: "220px",
+                padding: "14px 16px",
+                width: "260px",
                 zIndex: 50,
                 color: "#16342e",
               }}
             >
-              <p style={{ margin: "0 0 8px", fontSize: "12px", fontWeight: 700 }}>
-                Order Audio Alerts
+              <p style={{ margin: "0 0 6px", fontSize: "13px", fontWeight: 700 }}>
+                Order Notification Settings
               </p>
-              <p style={{ margin: "0 0 10px", fontSize: "11px", color: "#6e8078", lineHeight: 1.4 }}>
-                Plays <b>order_urgent.wav</b> repeatedly until you accept or review incoming orders.
+              <p style={{ margin: "0 0 12px", fontSize: "11px", color: "#6e8078", lineHeight: 1.4 }}>
+                Never miss an order while working at the counter or browsing other tabs.
               </p>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <button
-                  onClick={() => {
-                    toggleSound();
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    width: "100%",
-                    padding: "7px 10px",
-                    border: "1px solid #d2e4db",
-                    borderRadius: "6px",
-                    background: soundEnabled ? "#e8f6ef" : "#f6f6f6",
-                    color: soundEnabled ? "#1d7454" : "#555",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  {soundEnabled ? <Bell size={14} /> : <BellOff size={14} />}
-                  {soundEnabled ? "Disable Audio Alerts" : "Enable Audio Alerts"}
-                </button>
+              {/* Sound Ringtone Section */}
+              <div style={{ marginBottom: "12px", paddingBottom: "10px", borderBottom: "1px solid #edf1ee" }}>
+                <b style={{ fontSize: "11px", display: "block", marginBottom: "6px", color: "#374151" }}>
+                  🔊 Audio Ringtone
+                </b>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <button
+                    onClick={() => {
+                      toggleSound();
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                      padding: "7px 10px",
+                      border: "1px solid #d2e4db",
+                      borderRadius: "6px",
+                      background: soundEnabled ? "#e8f6ef" : "#f6f6f6",
+                      color: soundEnabled ? "#1d7454" : "#555",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {soundEnabled ? <Bell size={14} /> : <BellOff size={14} />}
+                    {soundEnabled ? "Audio Alerts Enabled" : "Audio Alerts Muted"}
+                  </button>
 
-                <button
-                  onClick={() => {
-                    testSound();
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    width: "100%",
-                    padding: "7px 10px",
-                    border: "1px solid #d2e4db",
-                    borderRadius: "6px",
-                    background: "#ffffff",
-                    color: "#28483e",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  <Volume2 size={14} color="#df663d" />
-                  Test Chime Sound
-                </button>
+                  <button
+                    onClick={() => {
+                      testSound();
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                      padding: "7px 10px",
+                      border: "1px solid #d2e4db",
+                      borderRadius: "6px",
+                      background: "#ffffff",
+                      color: "#28483e",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Volume2 size={14} color="#df663d" />
+                    Test Ringtone Chime
+                  </button>
+                </div>
+              </div>
+
+              {/* Desktop Push Banner Section */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <b style={{ fontSize: "11px", color: "#374151" }}>
+                    🖥️ Desktop Banners
+                  </b>
+                  {desktopNotificationPermission === "granted" ? (
+                    <span style={{ fontSize: "10px", color: "#1d7454", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                      <CheckCircle2 size={12} /> Active
+                    </span>
+                  ) : desktopNotificationPermission === "denied" ? (
+                    <span style={{ fontSize: "10px", color: "#cf1322", fontWeight: 700 }}>
+                      Blocked
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: "10px", color: "#fa8c16", fontWeight: 700 }}>
+                      Not Setup
+                    </span>
+                  )}
+                </div>
+
+                <p style={{ margin: "0 0 8px", fontSize: "10px", color: "#7a9187", lineHeight: 1.3 }}>
+                  Alerts pop up on your computer screen even if the browser is minimized.
+                </p>
+
+                {desktopNotificationPermission === "granted" ? (
+                  <button
+                    onClick={() => sendTestNotification()}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                      padding: "7px 10px",
+                      border: "1px solid #d2e4db",
+                      borderRadius: "6px",
+                      background: "#f0fdf4",
+                      color: "#166534",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Monitor size={14} />
+                    Test Desktop Notification
+                  </button>
+                ) : desktopNotificationPermission === "denied" ? (
+                  <div style={{ padding: "6px 8px", borderRadius: "6px", background: "#fff1f0", color: "#cf1322", fontSize: "10px" }}>
+                    ⚠️ Notifications were blocked. Click the lock/tune icon near your browser address bar to allow them.
+                  </div>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      await requestNotificationPermission();
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                      padding: "8px 10px",
+                      border: 0,
+                      borderRadius: "6px",
+                      background: "#227f5e",
+                      color: "#ffffff",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      boxShadow: "0 2px 5px rgba(34,127,94,0.3)",
+                    }}
+                  >
+                    <Bell size={14} />
+                    Enable Desktop Alerts
+                  </button>
+                )}
               </div>
             </div>
           )}

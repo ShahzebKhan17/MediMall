@@ -182,8 +182,13 @@ export default function MediAssistPage() {
 
   const handleOrderOTC = async (med: any) => {
     try {
-      addToCart(med.id || Math.floor(Math.random() * 1000) + 100);
-      alert(`Added ${med.name} to your cart.`);
+      if (med.id) {
+        addToCart(med.id, med);
+        alert(`Added ${med.name} to your cart.`);
+      } else {
+        alert(`Searching for "${med.name}" in verified pharmacy inventory...`);
+        location.href = `/medicines?q=${encodeURIComponent(med.name)}`;
+      }
     } catch (e) {
       console.warn("Could not add OTC directly to cart:", e);
     }
@@ -639,19 +644,23 @@ export default function MediAssistPage() {
                       {/* Action CTA */}
                       <button
                         onClick={() => {
-                          const medId = item.id || 1;
-                          addToCart(medId, {
-                            id: medId,
-                            name: item.name,
-                            brand: item.brand || item.name,
-                            price: item.price || 40,
-                            type: item.type,
-                            rx: item.requires_rx,
-                            color: "blue",
-                            image_url: item.image_url,
-                            packaging_type: item.packaging_type,
-                          });
-                          alert(`Added "${item.name}" to your cart!`);
+                          if (item.id) {
+                            addToCart(item.id, {
+                              id: item.id,
+                              name: item.name,
+                              brand: item.brand || item.name,
+                              price: item.price || 40,
+                              type: item.type,
+                              rx: item.requires_rx,
+                              color: "blue",
+                              image_url: item.image_url,
+                              packaging_type: item.packaging_type,
+                            });
+                            alert(`Added "${item.name}" to your cart!`);
+                          } else {
+                            alert(`Searching for "${item.name}" in verified pharmacy inventory...`);
+                            location.href = `/medicines?q=${encodeURIComponent(item.name)}`;
+                          }
                         }}
                         style={{
                           border: "1px solid #227f5e",

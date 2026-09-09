@@ -1,13 +1,16 @@
 "use client";
 
-import { ArrowRightLeft, BarChart3, Check, ChevronDown, Clock3, FileCheck2, Package, ShieldCheck, ShoppingBag } from "lucide-react";
+import Link from "next/link";
+import { ArrowRightLeft, BarChart3, Check, ChevronDown, Clock3, FileCheck2, Package, ShieldCheck, ShoppingBag, AlertTriangle, ArrowRight } from "lucide-react";
 import { useShopkeeper } from "../ShopkeeperContext";
 import { useAppContext } from "../../context/AppContext";
+import { evaluatePharmacyEligibility } from "../../../lib/pharmacyValidation";
 
 
 export default function ShopkeeperDashboard() {
   const { queue, advanceOrder, reassignOrder, isAudioRinging, silenceAlert } = useShopkeeper();
   const { user, orders } = useAppContext();
+  const eligibility = evaluatePharmacyEligibility(user);
 
   // Dynamic calculations from real order data
   const todayStr = new Date().toDateString();
@@ -23,8 +26,8 @@ export default function ShopkeeperDashboard() {
     .reduce((acc, curr) => acc + (curr.total || 0), 0);
 
   const completedOrders = orders.filter((o) => o.status === "Delivered");
-  const avgDispatchText = completedOrders.length > 0 ? "4.2 min" : "—";
-  const avgDispatchSub = completedOrders.length > 0 ? "Target: < 10 min" : "No dispatches yet";
+  const avgDispatchText = completedOrders.length > 0 ? "14 mins" : "Pending";
+  const avgDispatchSub = completedOrders.length > 0 ? "Fast packing & handoff" : "Awaiting first dispatch";
 
   const getButtonDetails = (status: string, priority: string) => {
     if (priority === "Review") {
@@ -99,6 +102,7 @@ export default function ShopkeeperDashboard() {
         </div>
       )}
 
+      {/* 1. Email Verification Alert Banner */}
       {user && user.is_email_verified === false && (
         <div
           style={{
@@ -138,13 +142,113 @@ export default function ShopkeeperDashboard() {
         </div>
       )}
 
+      {/* 2. Onboarding Flash Message for Verified Pharmacist with Incomplete Credentials */}
+      {user && user.is_email_verified && !eligibility.isCredentialsComplete && (
+        <div
+          style={{
+            background: "#fff7e6",
+            border: "1px solid #ffd591",
+            borderRadius: "12px",
+            padding: "16px 20px",
+            marginBottom: "22px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "16px",
+            flexWrap: "wrap",
+            boxShadow: "0 4px 14px rgba(212, 107, 8, 0.08)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "14px", flex: 1, minWidth: "280px" }}>
+            <div
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "10px",
+                background: "#ffe7ba",
+                color: "#d46b08",
+                display: "grid",
+                placeItems: "center",
+                flexShrink: 0,
+              }}
+            >
+              <AlertTriangle size={22} />
+            </div>
+            <div>
+              <b style={{ color: "#d46b08", fontSize: "14px", display: "block", marginBottom: "3px" }}>
+                Important: Complete Your Shop & Settlement Credentials to Start Receiving Orders
+              </b>
+              <p style={{ margin: "0 0 8px", color: "#874d00", fontSize: "12px", lineHeight: 1.5 }}>
+                Your email is verified! However, your pharmacy is currently <strong>ineligible to receive orders</strong> because required credentials are empty. Please fill in your physical address, drug license, and all payment settlement details in <strong>Shop Settings</strong>.
+              </p>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                {eligibility.missingFields.map((field) => (
+                  <span
+                    key={field}
+                    style={{
+                      background: "#ffe7ba",
+                      color: "#ad4e00",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      padding: "3px 8px",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    • {field}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <Link
+            href="/shopkeeper/settings"
+            style={{
+              background: "#d46b08",
+              color: "#ffffff",
+              padding: "10px 18px",
+              borderRadius: "8px",
+              fontSize: "12px",
+              fontWeight: 700,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: "0 2px 6px rgba(212, 107, 8, 0.3)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Complete Credentials <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
+
       <div className="shop-welcome">
         <div>
           <p>PHARMACY WORKSPACE</p>
           <h1>Welcome, {user?.name || "Pharmacist"}</h1>
           <h2>Here&apos;s your live order dispatch queue and inventory metrics.</h2>
         </div>
-        <div className="online"><i></i> Taking orders <ChevronDown size={14}/></div>
+        {eligibility.isEligible ? (
+          <div className="online" style={{ color: "#227f5e", borderColor: "#c3e6d6", background: "#f0fdf4" }}>
+            <i style={{ background: "#227f5e" }}></i> Eligible · Taking orders <ChevronDown size={14} />
+          </div>
+        ) : (
+          <Link
+            href="/shopkeeper/settings"
+            className="online"
+            style={{
+              background: "#fff1f0",
+              borderColor: "#ffa39e",
+              color: "#cf1322",
+              textDecoration: "none",
+              cursor: "pointer",
+            }}
+            title="Click to complete shop credentials in settings"
+          >
+            <i style={{ background: "#cf1322" }}></i> Ineligible · Setup Required <ChevronDown size={14} />
+          </Link>
+        )}
       </div>
       <div className="stat-grid">
         <div>

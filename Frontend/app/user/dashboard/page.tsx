@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AlertCircle, CheckCircle2, ClipboardList, Clock3, FileText, HeartPulse, MapPin, PackageCheck, Pill, Plus, RefreshCw, Search, ShoppingBag } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 
@@ -13,6 +13,26 @@ export default function UserDashboard() {
     setToast(`Added ${name} to cart`);
     setTimeout(() => setToast(""), 1800);
   };
+
+  // Derive unique past ordered medicines for Quick Reorder
+  const regularMedicines = useMemo(() => {
+    const seen = new Set<string>();
+    const items: Array<{ id: number; name: string; brand: string }> = [];
+    for (const order of orders) {
+      for (const it of order.itemsList) {
+        const key = it.name.toLowerCase().trim();
+        if (!seen.has(key)) {
+          seen.add(key);
+          items.push({
+            id: it.medicineId || it.id || 0,
+            name: it.name,
+            brand: it.brand || "Medicine",
+          });
+        }
+      }
+    }
+    return items.slice(0, 4);
+  }, [orders]);
 
   // Find first active order (not Delivered or Cancelled)
   const activeOrder = orders.find(o => o.status !== "Delivered" && o.status !== "Cancelled");
@@ -210,22 +230,31 @@ export default function UserDashboard() {
             <button className="plain" onClick={() => location.href = "/medicines"}>View all</button>
           </div>
           <div className="medicine-list">
-            <div>
-              <span className="med-icon">V</span>
-              <p>
-                <b>Vitamin D3</b>
-                <small>Uprise D3 · 4 capsules</small>
-              </p>
-              <button onClick={() => handleAdd(3, "Vitamin D3")}>+ Add</button>
-            </div>
-            <div>
-              <span className="med-icon blue">C</span>
-              <p>
-                <b>Cetirizine 10mg</b>
-                <small>Cetzine · 10 tablets</small>
-              </p>
-              <button onClick={() => handleAdd(2, "Cetirizine 10mg")}>+ Add</button>
-            </div>
+            {regularMedicines.length > 0 ? (
+              regularMedicines.map((med, idx) => (
+                <div key={idx}>
+                  <span className={`med-icon ${idx % 2 === 1 ? "blue" : ""}`}>
+                    {med.name.charAt(0).toUpperCase()}
+                  </span>
+                  <p>
+                    <b>{med.name}</b>
+                    <small>{med.brand}</small>
+                  </p>
+                  <button onClick={() => handleAdd(med.id, med.name)}>+ Add</button>
+                </div>
+              ))
+            ) : (
+              <div style={{ padding: "16px 0", textAlign: "center", color: "#6b8077", fontSize: "13px" }}>
+                <p style={{ margin: "0 0 10px 0" }}>No past orders yet. Browse our verified pharmacy inventory to place your first order.</p>
+                <button
+                  className="plain"
+                  style={{ color: "#227f5e", fontWeight: 700, textDecoration: "underline", cursor: "pointer" }}
+                  onClick={() => (location.href = "/medicines")}
+                >
+                  Explore Medicines →
+                </button>
+              </div>
+            )}
           </div>
         </section>
       </div>

@@ -120,11 +120,8 @@ export default function PatientPrescriptionsPage() {
         alert(`File "${file.name}" uploaded successfully! Sent to licensed pharmacist for verification.`);
       }
     } catch (e: any) {
-      console.warn("Prescription upload error, falling back locally:", e);
-      const mockName = `Rx_${file.name}`;
-      addPrescription(mockName);
-      setList((prev) => [mockName, ...prev]);
-      alert(`File "${file.name}" saved locally. Nearby pharmacies can now verify it.`);
+      console.error("Prescription upload error:", e);
+      alert(`Failed to upload "${file.name}" to the server. Please check your network connection and try again.`);
     } finally {
       setIsUploading(false);
     }

@@ -54,6 +54,7 @@ class UserProfileUpdate(BaseModel):
     address: Optional[str] = None
     allergies: Optional[str] = None
     blood_group: Optional[str] = None
+    medical_license: Optional[str] = None
     bank_beneficiary_name: Optional[str] = None
     bank_account_number: Optional[str] = None
     bank_ifsc_code: Optional[str] = None
