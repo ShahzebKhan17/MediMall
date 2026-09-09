@@ -129,6 +129,8 @@ class MedicineResponse(BaseModel):
     stock: int
     expiry_date: Optional[str] = None
     manufacturing_date: Optional[str] = None
+    pharmacy_id: Optional[str] = None
+    pharmacy_name: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -148,6 +150,7 @@ class MedicineCreate(BaseModel):
     stock: int = 100
     expiry_date: Optional[str] = None
     manufacturing_date: Optional[str] = None
+    pharmacy_id: Optional[str] = None
 
 
 class MedicineUpdate(BaseModel):

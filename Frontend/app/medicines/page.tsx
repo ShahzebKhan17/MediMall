@@ -7,7 +7,7 @@ import { useAppContext, Medicine } from "../context/AppContext";
 import { useLocation } from "../context/LocationContext";
 import { useMedicinesQuery } from "../../lib/hooks/useQueries";
 import { MedicineSearchDropdown } from "../../components/ui/MedicineSearchDropdown";
-import { api } from "../../lib/api";
+import { api, getMediaUrl } from "../../lib/api";
 
 export default function MedicinesPage() {
   const [query, setQuery] = useState("");
@@ -201,7 +201,7 @@ export default function MedicinesPage() {
                   >
                     {m.image_url ? (
                       <img
-                        src={m.image_url}
+                        src={getMediaUrl(m.image_url)}
                         alt={`${m.name} packaging`}
                         style={{
                           width: "100%",
@@ -304,7 +304,7 @@ export default function MedicinesPage() {
                         }}
                       >
                         {m.image_url ? (
-                          <img src={m.image_url} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          <img src={getMediaUrl(m.image_url)} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         ) : (
                           <span className={`cart-pill ${m.color || "blue"}`}><Pill size={15}/></span>
                         )}

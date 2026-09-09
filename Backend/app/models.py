@@ -59,11 +59,15 @@ class Medicine(Base):
     salt_composition = Column(String(255), nullable=True)
     stock = Column(Integer, default=100, nullable=False)
     expiry_date = Column(String(100), nullable=True)
-    manufacturing_date = Column(String(100), nullable=True)
+    pharmacy_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-
+    pharmacy = relationship("User", foreign_keys=[pharmacy_id])
     order_items = relationship("OrderItem", back_populates="medicine")
+
+    @property
+    def pharmacy_name(self) -> str:
+        return self.pharmacy.name if self.pharmacy else "MediMall Certified Pharmacy"
 
 
 class Order(Base):

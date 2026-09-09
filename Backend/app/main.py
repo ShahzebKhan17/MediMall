@@ -70,6 +70,9 @@ async def lifespan(app: FastAPI):
                 if "salt_composition" not in existing_med_cols:
                     conn.execute(text("ALTER TABLE medicines ADD COLUMN salt_composition VARCHAR(255)"))
                     conn.commit()
+                if "pharmacy_id" not in existing_med_cols:
+                    conn.execute(text("ALTER TABLE medicines ADD COLUMN pharmacy_id VARCHAR(36)"))
+                    conn.commit()
 
             if "orders" in inspector.get_table_names():
                 existing_order_cols = [c["name"] for c in inspector.get_columns("orders")]
@@ -82,29 +85,8 @@ async def lifespan(app: FastAPI):
     except Exception as err:
         logger.error("Database table initialization/migration error: %s", err)
 
-    # Seed initial medicines & default pharmacy
-    db = SessionLocal()
-    try:
-        # 1. Seed / verify default medicine catalog items
-        for med in DEFAULT_MEDICINES:
-            db_med = db.query(Medicine).filter(Medicine.name == med["name"]).first()
-            if not db_med:
-                new_med = Medicine(**med)
-                db.add(new_med)
-            else:
-                if not db_med.image_url:
-                    db_med.image_url = med.get("image_url")
-                if not db_med.packaging_type:
-                    db_med.packaging_type = med.get("packaging_type")
-                if not db_med.salt_composition and med.get("salt_composition"):
-                    db_med.salt_composition = med.get("salt_composition")
-
-        db.commit()
-    except Exception as err:
-        db.rollback()
-        logger.error("Startup seeding error: %s", err)
-    finally:
-        db.close()
+    # Ensure uploads subdirectories exist
+    os.makedirs(os.path.join(UPLOAD_DIR, "medicines"), exist_ok=True)
 
     yield
     # Shutdown logic (if any)

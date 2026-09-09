@@ -1,10 +1,19 @@
+import os
+import uuid
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import Medicine
+from app.core import security
+from app.models import Medicine, User
 from app import schemas
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+MEDICINES_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "medicines")
+os.makedirs(MEDICINES_UPLOAD_DIR, exist_ok=True)
+MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB limit
 
 router = APIRouter()
 
@@ -250,13 +259,70 @@ DEFAULT_MEDICINES = [
 ]
 
 
+@router.post("/upload-image")
+def upload_medicine_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(security.require_pharmacy_user),
+):
+    file_ext = os.path.splitext(file.filename or "")[1].lower()
+    if file_ext not in [".png", ".jpg", ".jpeg", ".webp"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image format. Only JPG, JPEG, PNG, and WEBP are supported."
+        )
+
+    clean_original = os.path.basename(file.filename or "medicine").replace(" ", "_")
+    unique_filename = f"{uuid.uuid4().hex}_{clean_original}"
+    file_path = os.path.join(MEDICINES_UPLOAD_DIR, unique_filename)
+
+    total_bytes = 0
+    try:
+        with open(file_path, "wb") as buffer:
+            while chunk := file.file.read(1024 * 1024):
+                total_bytes += len(chunk)
+                if total_bytes > MAX_FILE_SIZE_BYTES:
+                    buffer.close()
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail="Image file size exceeds maximum limit of 10 MB.",
+                    )
+                buffer.write(chunk)
+    except HTTPException:
+        raise
+    except Exception as e:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save uploaded image: {str(e)}",
+        )
+
+    return {"image_url": f"/uploads/medicines/{unique_filename}"}
+
+
+@router.get("/inventory", response_model=List[schemas.MedicineResponse])
+def get_pharmacy_inventory(
+    current_user: User = Depends(security.require_pharmacy_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns only the medicines managed by the authenticated pharmacy.
+    """
+    return db.query(Medicine).filter(Medicine.pharmacy_id == current_user.id).order_by(Medicine.created_at.desc()).all()
+
+
 @router.get("/", response_model=List[schemas.MedicineResponse])
 def get_medicines(
     q: Optional[str] = None,
     type: Optional[str] = None,
+    pharmacy_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(Medicine)
+    if pharmacy_id:
+        query = query.filter(Medicine.pharmacy_id == pharmacy_id)
     if q:
         query = query.filter(
             (Medicine.name.ilike(f"%{q}%")) |
@@ -281,10 +347,6 @@ def get_medicine_by_id(id: int, db: Session = Depends(get_db)):
 
 @router.get("/{id}/substitutes", response_model=List[schemas.MedicineResponse])
 def get_substitutes(id: int, db: Session = Depends(get_db)):
-    """
-    Returns available substitutes/alternatives for a medicine based on matching salt composition
-    or matching therapeutic type.
-    """
     target = db.query(Medicine).filter(Medicine.id == id).first()
     if not target:
         raise HTTPException(
@@ -292,7 +354,6 @@ def get_substitutes(id: int, db: Session = Depends(get_db)):
             detail=f"Medicine with ID {id} not found."
         )
 
-    # 1. Look for exact matching salt_composition
     substitutes = []
     if target.salt_composition:
         substitutes = (
@@ -305,7 +366,6 @@ def get_substitutes(id: int, db: Session = Depends(get_db)):
             .all()
         )
 
-    # 2. If no exact salt match, look for medicines in the same category
     if not substitutes and target.type:
         substitutes = (
             db.query(Medicine)
@@ -321,34 +381,26 @@ def get_substitutes(id: int, db: Session = Depends(get_db)):
     return substitutes
 
 
-@router.post("/seed", response_model=List[schemas.MedicineResponse], status_code=status.HTTP_201_CREATED)
-def seed_medicines(db: Session = Depends(get_db)):
-    added_meds = []
-    for med in DEFAULT_MEDICINES:
-        db_med = db.query(Medicine).filter(Medicine.name == med["name"]).first()
-        if not db_med:
-            new_med = Medicine(**med)
-            db.add(new_med)
-            added_meds.append(new_med)
-        else:
-            # Update existing medicines with salt_composition and updated fields
-            if not db_med.salt_composition and "salt_composition" in med:
-                db_med.salt_composition = med["salt_composition"]
-    db.commit()
-    for med in added_meds:
-        db.refresh(med)
-    return db.query(Medicine).all()
-
-
 @router.post("/", response_model=schemas.MedicineResponse, status_code=status.HTTP_201_CREATED)
-def create_medicine(med_in: schemas.MedicineCreate, db: Session = Depends(get_db)):
-    db_med = db.query(Medicine).filter(Medicine.name == med_in.name).first()
-    if db_med:
+def create_medicine(
+    med_in: schemas.MedicineCreate,
+    current_user: User = Depends(security.require_pharmacy_user),
+    db: Session = Depends(get_db)
+):
+    existing = (
+        db.query(Medicine)
+        .filter(Medicine.name.ilike(med_in.name), Medicine.pharmacy_id == current_user.id)
+        .first()
+    )
+    if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A medicine with this name already exists.",
+            detail="A medicine with this name already exists in your inventory.",
         )
-    new_med = Medicine(**med_in.model_dump())
+    
+    med_data = med_in.model_dump()
+    med_data["pharmacy_id"] = current_user.id
+    new_med = Medicine(**med_data)
     db.add(new_med)
     db.commit()
     db.refresh(new_med)
@@ -359,6 +411,7 @@ def create_medicine(med_in: schemas.MedicineCreate, db: Session = Depends(get_db
 def update_medicine(
     id: int,
     med_update: schemas.MedicineUpdate,
+    current_user: User = Depends(security.require_pharmacy_user),
     db: Session = Depends(get_db)
 ):
     db_med = db.query(Medicine).filter(Medicine.id == id).first()
@@ -368,6 +421,12 @@ def update_medicine(
             detail=f"Medicine with ID {id} not found."
         )
     
+    if db_med.pharmacy_id and db_med.pharmacy_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to modify another pharmacy's inventory.",
+        )
+
     update_data = med_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(db_med, field, value)
@@ -375,4 +434,28 @@ def update_medicine(
     db.commit()
     db.refresh(db_med)
     return db_med
+
+
+@router.delete("/{id}", status_code=status.HTTP_200_OK)
+def delete_medicine(
+    id: int,
+    current_user: User = Depends(security.require_pharmacy_user),
+    db: Session = Depends(get_db)
+):
+    db_med = db.query(Medicine).filter(Medicine.id == id).first()
+    if not db_med:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Medicine with ID {id} not found."
+        )
+
+    if db_med.pharmacy_id and db_med.pharmacy_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete another pharmacy's inventory.",
+        )
+
+    db.delete(db_med)
+    db.commit()
+    return {"status": "success", "message": "Medicine deleted from your inventory."}
 

@@ -19,6 +19,16 @@ export function clearStoredAuthToken(): void {
   }
 }
 
+export function getMediaUrl(path?: string): string {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:") || path.startsWith("blob:")) {
+    return path;
+  }
+  const backendBase = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${backendBase}${cleanPath}`;
+}
+
 export async function apiFetch<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -273,6 +283,33 @@ export const api = {
         body: JSON.stringify(medicine),
       });
     },
+    getInventory: async () => {
+      return apiFetch<
+        Array<{
+          id: number;
+          name: string;
+          brand: string;
+          price: number;
+          type: string;
+          rx: boolean;
+          color: string;
+          image_url?: string;
+          packaging_type?: string;
+          salt_composition?: string;
+          stock: number;
+          pharmacy_id?: string;
+          pharmacy_name?: string;
+        }>
+      >("/medicines/inventory");
+    },
+    uploadImage: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return apiFetch<{ image_url: string }>("/medicines/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+    },
     update: async (
       id: number,
       data: {
@@ -290,6 +327,11 @@ export const api = {
       return apiFetch(`/medicines/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
+      });
+    },
+    delete: async (id: number) => {
+      return apiFetch<{ status: string; message: string }>(`/medicines/${id}`, {
+        method: "DELETE",
       });
     },
   },
