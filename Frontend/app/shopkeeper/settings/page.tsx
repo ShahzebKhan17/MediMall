@@ -1,33 +1,89 @@
 "use client";
 
-import { useState } from "react";
-import { Settings, Save, Store, ShieldCheck, MapPin, Phone, Clock, Bell, CreditCard } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Settings, Save, Store, ShieldCheck, MapPin, Phone, Clock, Bell, CreditCard, AlertCircle } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 
 export default function ShopSettingsPage() {
   const { user, updateProfile } = useAppContext();
 
-  const [storeName, setStoreName] = useState(user?.name || "");
-  const [licenseNumber, setLicenseNumber] = useState(user?.medical_license || "DL-KA-BNG-2025-0042");
-  const [phone, setPhone] = useState(user?.phone || "+919795406782");
-  const [email, setEmail] = useState(user?.email || "");
-  const [address, setAddress] = useState(user?.address || "100 Feet Road, Indiranagar, Bengaluru, Karnataka 560038");
+  const [storeName, setStoreName] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
   const [openingHours, setOpeningHours] = useState("08:00 AM - 11:00 PM (All Days)");
-  const [upiPayout, setUpiPayout] = useState("store@icici");
   const [dispatchRadius, setDispatchRadius] = useState("5 km");
   const [autoAccept, setAutoAccept] = useState(true);
-  const [savedMessage, setSavedMessage] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Bank & Settlement fields
+  const [beneficiaryName, setBeneficiaryName] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [confirmAccountNumber, setConfirmAccountNumber] = useState("");
+  const [ifscCode, setIfscCode] = useState("");
+  const [upiPayout, setUpiPayout] = useState("");
+
+  const [formError, setFormError] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Synchronize state when user data loads
+  useEffect(() => {
+    if (user) {
+      setStoreName(user.name || "");
+      setLicenseNumber(user.medical_license || "");
+      setPhone(user.phone || "");
+      setEmail(user.email || "");
+      setAddress(user.address || "");
+      setBeneficiaryName(user.bankBeneficiaryName || "");
+      setBankName(user.bankName || "");
+      setAccountNumber(user.bankAccountNumber || "");
+      setConfirmAccountNumber(user.bankAccountNumber || "");
+      setIfscCode(user.bankIfscCode || "");
+      setUpiPayout(user.upiId || "");
+    }
+  }, [user]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({
-      name: storeName,
-      phone,
-      email,
-      address,
-    });
-    setSavedMessage(true);
-    setTimeout(() => setSavedMessage(false), 3000);
+    setFormError(null);
+
+    // Validate account number match if provided
+    if (accountNumber && confirmAccountNumber && accountNumber !== confirmAccountNumber) {
+      setFormError("Bank account numbers do not match. Please re-check.");
+      return;
+    }
+
+    // Validate IFSC code format if provided
+    const cleanIfsc = ifscCode.trim().toUpperCase();
+    if (cleanIfsc && cleanIfsc.length !== 11) {
+      setFormError("IFSC code must be exactly 11 alphanumeric characters (e.g., HDFC0001234).");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updateProfile({
+        name: storeName,
+        phone,
+        email,
+        address,
+        medical_license: licenseNumber,
+        bankBeneficiaryName: beneficiaryName.trim(),
+        bankAccountNumber: accountNumber.trim(),
+        bankIfscCode: cleanIfsc,
+        bankName: bankName.trim(),
+        upiId: upiPayout.trim(),
+      });
+      setSavedMessage(true);
+      setTimeout(() => setSavedMessage(false), 4000);
+    } catch (err: any) {
+      console.error("Save settings failed:", err);
+      setFormError(err?.message || "Failed to update store settings. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -36,7 +92,7 @@ export default function ShopSettingsPage() {
         <div>
           <p>PHARMACY PREFERENCES</p>
           <h1>Shop Settings</h1>
-          <h2>Configure store information, drug license details, dispatch radius, and payout accounts.</h2>
+          <h2>Configure store information, drug license details, dispatch radius, and payout bank accounts.</h2>
         </div>
       </div>
 
@@ -56,12 +112,32 @@ export default function ShopSettingsPage() {
             fontWeight: 600,
           }}
         >
-          <ShieldCheck size={18} /> Store settings updated and synchronized with the dispatch network!
+          <ShieldCheck size={18} /> Store profile and bank settlement settings updated successfully!
+        </div>
+      )}
+
+      {formError && (
+        <div
+          style={{
+            background: "#fff1f0",
+            border: "1px solid #ffa39e",
+            color: "#cf1322",
+            padding: "12px 18px",
+            borderRadius: "10px",
+            marginBottom: "20px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            fontSize: "13px",
+            fontWeight: 600,
+          }}
+        >
+          <AlertCircle size={18} /> {formError}
         </div>
       )}
 
       <form onSubmit={handleSave} style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: "24px", marginTop: "16px" }}>
-        {/* Left Column: Store Profile & Legal Info */}
+        {/* Left Column: Store Profile & Payout Banking Details */}
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           <div className="card">
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
@@ -78,7 +154,7 @@ export default function ShopSettingsPage() {
                   style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
                   value={storeName}
                   onChange={(e) => setStoreName(e.target.value)}
-                  placeholder="e.g. Apollo Pharmacy, MedPlus"
+                  placeholder="e.g. Apollo Pharmacy, Indian Pharmacy"
                   required
                 />
               </div>
@@ -92,6 +168,7 @@ export default function ShopSettingsPage() {
                     style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
                     value={licenseNumber}
                     onChange={(e) => setLicenseNumber(e.target.value)}
+                    placeholder="DL-XX-YYY-2025-0000"
                     required
                   />
                 </div>
@@ -103,6 +180,7 @@ export default function ShopSettingsPage() {
                     style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+919876543210"
                     required
                   />
                 </div>
@@ -123,38 +201,117 @@ export default function ShopSettingsPage() {
 
               <div>
                 <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                  Physical Store Address (For Hyperlocal Pickup)
+                  Physical Store Address (For Hyperlocal Delivery Routing)
                 </label>
                 <textarea
                   rows={3}
                   style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none", resize: "vertical" }}
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Street, Landmark, City, State, Pincode"
                   required
                 />
               </div>
             </div>
           </div>
 
+          {/* Option A: Bank Details & Automated Settlements */}
           <div className="card">
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
               <CreditCard size={20} color="#227f5e" />
-              <h3 style={{ margin: 0, fontSize: "16px" }}>Payouts & Daily Settlements</h3>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "16px" }}>Payouts & Bank Settlement Details</h3>
+                <small style={{ color: "#7a9187", fontSize: "11px" }}>Real money order settlements will be transferred to this verified account.</small>
+              </div>
             </div>
 
-            <div>
-              <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
-                Instant Settlement UPI VPA / Account
-              </label>
-              <input
-                style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
-                value={upiPayout}
-                onChange={(e) => setUpiPayout(e.target.value)}
-                placeholder="storename@bank"
-              />
-              <small style={{ color: "#7a9187", fontSize: "11px", marginTop: "4px", display: "block" }}>
-                Order revenues are settled directly every night at 11:59 PM.
-              </small>
+            <div style={{ display: "grid", gap: "14px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
+                    Account Holder / Beneficiary Name
+                  </label>
+                  <input
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
+                    value={beneficiaryName}
+                    onChange={(e) => setBeneficiaryName(e.target.value)}
+                    placeholder="Name matching bank records"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
+                    Bank Name
+                  </label>
+                  <input
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    placeholder="e.g. HDFC Bank, SBI, ICICI"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
+                    Bank Account Number
+                  </label>
+                  <input
+                    type="password"
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    placeholder="Enter account number"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
+                    Confirm Account Number
+                  </label>
+                  <input
+                    type="text"
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
+                    value={confirmAccountNumber}
+                    onChange={(e) => setConfirmAccountNumber(e.target.value)}
+                    placeholder="Re-enter account number"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
+                    IFSC Code
+                  </label>
+                  <input
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none", textTransform: "uppercase" }}
+                    value={ifscCode}
+                    onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. HDFC0001234"
+                    maxLength={11}
+                  />
+                  <small style={{ color: "#7a9187", fontSize: "10px", marginTop: "2px", display: "block" }}>11-character Indian banking code</small>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#333" }}>
+                    Instant Settlement UPI VPA / ID (Optional)
+                  </label>
+                  <input
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1ded7", fontSize: "13px", outline: "none" }}
+                    value={upiPayout}
+                    onChange={(e) => setUpiPayout(e.target.value)}
+                    placeholder="storename@okaxis or store@icici"
+                  />
+                  <small style={{ color: "#7a9187", fontSize: "10px", marginTop: "2px", display: "block" }}>For instant UPI credit settlements</small>
+                </div>
+              </div>
+
+              <div style={{ background: "#f8faf9", border: "1px solid #e2eae5", borderRadius: "8px", padding: "10px 14px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <ShieldCheck size={16} color="#227f5e" />
+                <span style={{ fontSize: "11px", color: "#4f6e63" }}>
+                  All bank records are securely encrypted and used exclusively for automated marketplace order settlements.
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -211,6 +368,7 @@ export default function ShopSettingsPage() {
 
           <button
             type="submit"
+            disabled={isSaving}
             style={{
               background: "#16342e",
               color: "#ffffff",
@@ -219,7 +377,8 @@ export default function ShopSettingsPage() {
               borderRadius: "10px",
               fontSize: "14px",
               fontWeight: 700,
-              cursor: "pointer",
+              cursor: isSaving ? "not-allowed" : "pointer",
+              opacity: isSaving ? 0.7 : 1,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -228,7 +387,7 @@ export default function ShopSettingsPage() {
               transition: "all 0.2s ease",
             }}
           >
-            <Save size={18} /> Save Shop Settings
+            <Save size={18} /> {isSaving ? "Saving..." : "Save Shop Settings"}
           </button>
         </div>
       </form>

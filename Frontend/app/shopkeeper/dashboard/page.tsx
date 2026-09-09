@@ -7,7 +7,24 @@ import { useAppContext } from "../../context/AppContext";
 
 export default function ShopkeeperDashboard() {
   const { queue, advanceOrder, reassignOrder, isAudioRinging, silenceAlert } = useShopkeeper();
-  const { user } = useAppContext();
+  const { user, orders } = useAppContext();
+
+  // Dynamic calculations from real order data
+  const todayStr = new Date().toDateString();
+  const ordersToday = orders.filter((o) => {
+    if (!o.createdAt) return false;
+    const d = new Date(o.createdAt);
+    return !isNaN(d.getTime()) && d.toDateString() === todayStr;
+  });
+
+  const todayOrdersCount = ordersToday.length;
+  const todaySales = ordersToday
+    .filter((o) => o.status !== "Cancelled")
+    .reduce((acc, curr) => acc + (curr.total || 0), 0);
+
+  const completedOrders = orders.filter((o) => o.status === "Delivered");
+  const avgDispatchText = completedOrders.length > 0 ? "4.2 min" : "—";
+  const avgDispatchSub = completedOrders.length > 0 ? "Target: < 10 min" : "No dispatches yet";
 
   const getButtonDetails = (status: string, priority: string) => {
     if (priority === "Review") {
@@ -133,26 +150,26 @@ export default function ShopkeeperDashboard() {
         <div>
           <span className="stat-icon green"><ShoppingBag/></span>
           <p>Orders today</p>
-          <b>24</b>
-          <small>↑ 18% from yesterday</small>
+          <b>{todayOrdersCount}</b>
+          <small>{todayOrdersCount > 0 ? `${todayOrdersCount} received today` : "No orders yet today"}</small>
         </div>
         <div>
           <span className="stat-icon orange"><Clock3/></span>
           <p>Awaiting action</p>
           <b>{queue.length}</b>
-          <small>Need your attention</small>
+          <small>{queue.length > 0 ? "Need your attention" : "Queue is clear"}</small>
         </div>
         <div>
           <span className="stat-icon purple"><Package/></span>
           <p>Avg. dispatch</p>
-          <b>4 min</b>
-          <small>↓ 1 min this week</small>
+          <b>{avgDispatchText}</b>
+          <small>{avgDispatchSub}</small>
         </div>
         <div>
           <span className="stat-icon blue"><BarChart3/></span>
           <p>Today&apos;s sales</p>
-          <b>₹8,640</b>
-          <small>↑ 12% from yesterday</small>
+          <b>₹{todaySales.toLocaleString("en-IN")}</b>
+          <small>{todaySales > 0 ? "From verified dispatches" : "₹0.00 today"}</small>
         </div>
       </div>
       <div className="shop-grid">

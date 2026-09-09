@@ -32,6 +32,11 @@ class UserProfile(BaseModel):
     blood_group: Optional[str]
     role: str
     medical_license: Optional[str] = None
+    bank_beneficiary_name: Optional[str] = None
+    bank_account_number: Optional[str] = None
+    bank_ifsc_code: Optional[str] = None
+    bank_name: Optional[str] = None
+    upi_id: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     is_email_verified: bool = False
@@ -49,6 +54,11 @@ class UserProfileUpdate(BaseModel):
     address: Optional[str] = None
     allergies: Optional[str] = None
     blood_group: Optional[str] = None
+    bank_beneficiary_name: Optional[str] = None
+    bank_account_number: Optional[str] = None
+    bank_ifsc_code: Optional[str] = None
+    bank_name: Optional[str] = None
+    upi_id: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 

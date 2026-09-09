@@ -43,6 +43,7 @@ export interface Order {
   address: string;
   paymentMethod: string;
   prescription?: string;
+  createdAt?: string;
 }
 
 
@@ -58,6 +59,11 @@ export interface UserProfile {
   role?: "patient" | "pharmacy";
   medical_license?: string;
   is_email_verified?: boolean;
+  bankBeneficiaryName?: string;
+  bankAccountNumber?: string;
+  bankIfscCode?: string;
+  bankName?: string;
+  upiId?: string;
 }
 
 
@@ -124,6 +130,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       role: (me.role as "patient" | "pharmacy") || "patient",
       medical_license: me.medical_license,
       is_email_verified: me.is_email_verified ?? false,
+      bankBeneficiaryName: me.bank_beneficiary_name || "",
+      bankAccountNumber: me.bank_account_number || "",
+      bankIfscCode: me.bank_ifsc_code || "",
+      bankName: me.bank_name || "",
+      upiId: me.upi_id || "",
     };
   }, [userQuery.data]);
 
@@ -163,6 +174,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         time: bo.created_at
           ? new Date(bo.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
           : "",
+        createdAt: bo.created_at || "",
         type: hasRx ? "Prescription review" : "Ready to pack",
         priority: hasRx ? "Review" : "Pack",
         status: (bo.status as Order["status"]) || "Placed",
@@ -284,6 +296,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       blood_group: profile.bloodGroup,
       age: profile.age,
       gender: profile.gender,
+      bank_beneficiary_name: profile.bankBeneficiaryName,
+      bank_account_number: profile.bankAccountNumber,
+      bank_ifsc_code: profile.bankIfscCode,
+      bank_name: profile.bankName,
+      upi_id: profile.upiId,
     });
   };
 

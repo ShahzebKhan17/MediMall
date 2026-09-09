@@ -49,6 +49,21 @@ async def lifespan(app: FastAPI):
                 if "password_reset_expires_at" not in existing_cols:
                     conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_expires_at TIMESTAMP" if engine.name == "sqlite" else "ALTER TABLE users ADD COLUMN password_reset_expires_at TIMESTAMP WITH TIME ZONE"))
                     conn.commit()
+                if "bank_beneficiary_name" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN bank_beneficiary_name VARCHAR(255)"))
+                    conn.commit()
+                if "bank_account_number" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN bank_account_number VARCHAR(50)"))
+                    conn.commit()
+                if "bank_ifsc_code" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN bank_ifsc_code VARCHAR(20)"))
+                    conn.commit()
+                if "bank_name" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN bank_name VARCHAR(100)"))
+                    conn.commit()
+                if "upi_id" not in existing_cols:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN upi_id VARCHAR(100)"))
+                    conn.commit()
 
             if "medicines" in inspector.get_table_names():
                 existing_med_cols = [c["name"] for c in inspector.get_columns("medicines")]

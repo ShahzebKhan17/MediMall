@@ -25,6 +25,11 @@ class User(Base):
     blood_group = Column(String(20), nullable=True)
     role = Column(String(50), default="patient", nullable=False)  # "patient" or "pharmacy"
     medical_license = Column(String(255), nullable=True)
+    bank_beneficiary_name = Column(String(255), nullable=True)
+    bank_account_number = Column(String(50), nullable=True)
+    bank_ifsc_code = Column(String(20), nullable=True)
+    bank_name = Column(String(100), nullable=True)
+    upi_id = Column(String(100), nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     is_email_verified = Column(Boolean, default=False, nullable=False)

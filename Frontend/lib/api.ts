@@ -184,6 +184,11 @@ export const api = {
         allergies?: string;
         blood_group?: string;
         medical_license?: string;
+        bank_beneficiary_name?: string;
+        bank_account_number?: string;
+        bank_ifsc_code?: string;
+        bank_name?: string;
+        upi_id?: string;
         is_email_verified?: boolean;
         latitude?: number;
         longitude?: number;
