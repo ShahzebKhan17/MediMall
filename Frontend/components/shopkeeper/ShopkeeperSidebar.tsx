@@ -4,6 +4,8 @@ import { useRouter, usePathname } from "next/navigation";
 import { LayoutDashboard, ShoppingBag, FileCheck2, Package, BarChart3, Settings, UserRound, Pill, ChevronDown, LogOut } from "lucide-react";
 import { useShopkeeper } from "../../app/shopkeeper/ShopkeeperContext";
 import { useAppContext } from "../../app/context/AppContext";
+import { usePwa } from "../pwa/PwaProvider";
+import { Download } from "lucide-react";
 
 interface ShopkeeperSidebarProps {
   mobileOpen: boolean;
@@ -15,6 +17,7 @@ export default function ShopkeeperSidebar({ mobileOpen, onClose }: ShopkeeperSid
   const pathname = usePathname();
   const { queue } = useShopkeeper();
   const { user, logout } = useAppContext();
+  const { isInstallable, isStandalone, installApp } = usePwa();
   const ordersCount = queue.length;
 
   const handleLogout = async () => {
@@ -69,6 +72,14 @@ export default function ShopkeeperSidebar({ mobileOpen, onClose }: ShopkeeperSid
       </nav>
       <nav className="side-bottom">
         <span>ACCOUNT</span>
+        {isInstallable && !isStandalone && (
+          <button
+            onClick={installApp}
+            style={{ color: "#10B981", fontWeight: 600 }}
+          >
+            <Download size={18} />Install App
+          </button>
+        )}
         <button
           className={pathname === "/shopkeeper/settings" ? "active" : ""}
           onClick={() => {

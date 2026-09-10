@@ -18,10 +18,14 @@ const navItems = [
   { icon: CreditCard, label: "Payments", href: "/user/payments" },
 ];
 
+import { usePwa } from "../pwa/PwaProvider";
+import { Download } from "lucide-react";
+
 export default function UserSidebar({ mobileOpen, onClose }: UserSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { logout } = useAppContext();
+  const { isInstallable, isStandalone, installApp } = usePwa();
 
   const handleSignOut = async () => {
     try {
@@ -57,6 +61,14 @@ export default function UserSidebar({ mobileOpen, onClose }: UserSidebarProps) {
       </div>
       <div className="side-section bottom">
         <span>SUPPORT</span>
+        {isInstallable && !isStandalone && (
+          <button
+            onClick={installApp}
+            style={{ color: "#10B981", fontWeight: 600 }}
+          >
+            <Download size={18} />Install App
+          </button>
+        )}
         <button
           className={pathname === "/user/help" ? "side-active" : ""}
           onClick={() => {

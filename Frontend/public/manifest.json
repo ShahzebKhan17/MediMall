@@ -1,0 +1,60 @@
+{
+  "name": "MediMall — Hyperlocal Medicine Delivery",
+  "short_name": "MediMall",
+  "description": "Your local pharmacy, delivered in minutes. Order medicines, consult AI Doctor, and connect with verified neighbourhood pharmacies.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b1512",
+  "theme_color": "#10b981",
+  "lang": "en",
+  "scope": "/",
+  "categories": ["medical", "health", "shopping", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/maskable-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Search Medicines",
+      "short_name": "Medicines",
+      "description": "Search catalogue and place instant orders",
+      "url": "/medicines",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Order by Pharmacy",
+      "short_name": "Pharmacies",
+      "description": "Find and order from local verified pharmacies",
+      "url": "/pharmacies",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "AI Doctor",
+      "short_name": "AI Doctor",
+      "description": "Consult AI Doctor assistant",
+      "url": "/ai-doctor",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
