@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models import User, Medicine
+from app.api.endpoints.orders import is_pharmacy_eligible_for_orders
 from app import schemas
 
 router = APIRouter()
@@ -43,6 +44,9 @@ def get_pharmacies(
     results = []
 
     for pharm in pharmacies:
+        if not is_pharmacy_eligible_for_orders(pharm):
+            continue
+
         p_lat = pharm.latitude if pharm.latitude is not None else 12.9716
         p_lng = pharm.longitude if pharm.longitude is not None else 77.5946
 
