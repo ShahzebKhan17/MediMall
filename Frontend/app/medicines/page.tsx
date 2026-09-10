@@ -154,20 +154,6 @@ export default function MedicinesPage() {
             </div>
           )}
 
-          <div className="pharmacy-strip">
-            <div className="pharmacy-dot"><Pill size={19}/></div>
-            <div>
-              <b>Matched with Nearest Verified Pharmacy</b>
-              <p><span></span> Licensed pharmacy partner · Hyperlocal delivery</p>
-            </div>
-
-            <div className="delivery-time">
-              <Clock3 size={17}/>
-              <b>8 min</b>
-              <small>delivery estimate</small>
-            </div>
-          </div>
-
           <div className="result-title">
             <h2>{query ? `Results for “${query}”` : "Available in Catalog"}</h2>
             <span>{isLoading ? "Loading medicines..." : `${results.length} medicines available`}</span>
