@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.endpoints import auth, medicines, orders, prescriptions, ai_doctor
+from app.api.endpoints import auth, medicines, orders, prescriptions, ai_doctor, pharmacies
 
 api_router = APIRouter()
 
@@ -12,6 +12,7 @@ def health_check() -> dict[str, str]:
 
 api_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
 api_router.include_router(medicines.router, prefix="/medicines", tags=["medicines"])
+api_router.include_router(pharmacies.router, prefix="/pharmacies", tags=["pharmacies"])
 api_router.include_router(orders.router, prefix="/orders", tags=["orders"])
 api_router.include_router(prescriptions.router, prefix="/prescriptions", tags=["prescriptions"])
 api_router.include_router(ai_doctor.router, prefix="/ai-doctor", tags=["ai-doctor"])

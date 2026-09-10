@@ -158,7 +158,7 @@ export default function MedicinesPage() {
             <div className="pharmacy-dot"><Pill size={19}/></div>
             <div>
               <b>Matched with Nearest Verified Pharmacy</b>
-              <p><span></span> Licensed pharmacy partner · Hyperlocal delivery</p>
+              <p><span></span> Licensed pharmacy partner · <a href="/pharmacies" style={{ color: "#227f5e", fontWeight: 700, textDecoration: "underline" }}>Choose specific pharmacy instead</a></p>
             </div>
 
             <div className="delivery-time">

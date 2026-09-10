@@ -41,7 +41,7 @@ export default function Home() {
       {notice && <div className="toast"><Check size={16}/> {notice}</div>}
       <header className="nav shell">
         <a className="brand" href="#top" aria-label="MediMall home"><span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span></a>
-        <nav className={menu ? "open" : ""}><a href="#how">How it works</a><a href="#safety">Safety</a><a href="#partners">For pharmacies</a></nav>
+        <nav className={menu ? "open" : ""}><a href="/medicines">Medicines</a><a href="/pharmacies">Pharmacies</a><a href="/ai-doctor">AI Doctor</a><a href="#how">How it works</a></nav>
         <div className="nav-actions">
           <button
             className="location"
@@ -83,6 +83,7 @@ export default function Home() {
           <div className="order-box">
             <div className="tabs">
               <button className="active">Search medicine</button>
+              <button onClick={() => router.push("/pharmacies")}>Choose pharmacy <Store size={14} style={{ marginLeft: "4px" }}/></button>
               <button onClick={() => router.push("/ai-doctor")}>Ask MediAssist <Sparkles size={14}/></button>
             </div>
             
@@ -117,7 +118,7 @@ export default function Home() {
           <span><b>Speak to MediAssist</b><small>Any language, anytime</small></span>
           <ArrowRight/>
         </button>
-        <button onClick={() => router.push("/medicines")}>
+        <button onClick={() => router.push("/pharmacies")}>
           <span className="icon mint"><MapPin/></span>
           <span><b>Find nearby pharmacies</b><small>Medicines in your neighbourhood</small></span>
           <ArrowRight/>

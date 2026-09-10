@@ -8,7 +8,7 @@ import { api } from "../../lib/api";
 
 export default function CheckoutPage() {
   const { dark, toggleTheme } = useTheme();
-  const { cart, user, role, placeOrder, clearCart, refreshOrders, updateProfile } = useAppContext();
+  const { cart, user, role, placeOrder, clearCart, refreshOrders, updateProfile, selectedPharmacy } = useAppContext();
   const [method, setMethod] = useState<"upi" | "card" | "cod">("upi");
   const [placed, setPlaced] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,7 +78,7 @@ export default function CheckoutPage() {
     // If COD, use direct order placement with Idempotency Key
     if (method === "cod") {
       try {
-        await placeOrder("COD", deliveryAddress, undefined, idempotencyKey);
+        await placeOrder("COD", deliveryAddress, undefined, idempotencyKey, selectedPharmacy?.id);
         setPlaced(true);
       } catch (e: any) {
         setOrderError(e.message || "Failed to place COD order. Please try again.");
@@ -328,10 +328,18 @@ export default function CheckoutPage() {
             <div className="delivery-box">
               <Clock3 size={18} />
               <p>
-                <b>Delivery in 8 minutes</b>
-                <small>From nearest verified pharmacy · 0.8 km away</small>
+                {selectedPharmacy ? (
+                  <>
+                    <b>Direct Store Fulfillment</b>
+                    <small>From {selectedPharmacy.name}{selectedPharmacy.address ? ` · ${selectedPharmacy.address}` : ""}</small>
+                  </>
+                ) : (
+                  <>
+                    <b>Delivery in 8 minutes</b>
+                    <small>From nearest verified pharmacy in your area</small>
+                  </>
+                )}
               </p>
-
             </div>
 
             {hasRx && (

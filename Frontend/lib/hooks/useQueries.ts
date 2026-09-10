@@ -6,6 +6,8 @@ export const queryKeys = {
   orders: ["orders"] as const,
   prescriptions: ["prescriptions"] as const,
   medicines: (q?: string, type?: string) => ["medicines", { q: q || "", type: type || "" }] as const,
+  pharmacies: (params?: { q?: string; lat?: number; lng?: number }) => ["pharmacies", params || {}] as const,
+  pharmacyStore: (id: string) => ["pharmacyStore", id] as const,
 };
 
 export function useUserQuery() {
@@ -48,6 +50,26 @@ export function useMedicinesQuery(q?: string, type?: string) {
     queryFn: async () => {
       return await api.medicines.getAll(q, type);
     },
+  });
+}
+
+export function usePharmaciesQuery(params?: { q?: string; lat?: number; lng?: number; radius_km?: number }) {
+  return useQuery({
+    queryKey: queryKeys.pharmacies(params),
+    queryFn: async () => {
+      return await api.pharmacies.getAll(params);
+    },
+  });
+}
+
+export function usePharmacyStoreQuery(id: string) {
+  return useQuery({
+    queryKey: queryKeys.pharmacyStore(id),
+    queryFn: async () => {
+      if (!id) return null;
+      return await api.pharmacies.getById(id);
+    },
+    enabled: Boolean(id),
   });
 }
 
@@ -115,6 +137,7 @@ export function usePlaceOrderMutation() {
       address?: string;
       prescription_name?: string;
       idempotency_key?: string;
+      pharmacy_id?: string;
       items: Array<{ medicine_id: number; quantity: number }>;
     }) => api.orders.place(orderData),
     onSuccess: () => {

@@ -372,6 +372,7 @@ export const api = {
       address?: string;
       prescription_name?: string;
       idempotency_key?: string;
+      pharmacy_id?: string;
       items: Array<{ medicine_id: number; quantity: number }>;
     }) => {
       const headers: Record<string, string> = {};
@@ -496,6 +497,58 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ symptoms, language }),
       });
+    },
+  },
+
+  pharmacies: {
+    getAll: async (params?: { q?: string; lat?: number; lng?: number; radius_km?: number }) => {
+      const searchParams = new URLSearchParams();
+      if (params?.q) searchParams.set("q", params.q);
+      if (params?.lat !== undefined) searchParams.set("lat", params.lat.toString());
+      if (params?.lng !== undefined) searchParams.set("lng", params.lng.toString());
+      if (params?.radius_km !== undefined) searchParams.set("radius_km", params.radius_km.toString());
+      const queryStr = searchParams.toString() ? `?${searchParams.toString()}` : "";
+      return apiFetch<Array<{
+        id: string;
+        name: string;
+        email: string;
+        phone?: string;
+        address?: string;
+        latitude?: number;
+        longitude?: number;
+        medical_license?: string;
+        distance_km?: number;
+        medicines_count: number;
+        is_open: boolean;
+      }>>(`/pharmacies/${queryStr}`);
+    },
+    getById: async (id: string) => {
+      return apiFetch<{
+        id: string;
+        name: string;
+        email: string;
+        phone?: string;
+        address?: string;
+        latitude?: number;
+        longitude?: number;
+        medical_license?: string;
+        medicines_count: number;
+        is_open: boolean;
+        medicines: Array<{
+          id: number;
+          name: string;
+          brand: string;
+          price: number;
+          type: string;
+          rx: boolean;
+          color: string;
+          image_url?: string;
+          packaging_type?: string;
+          salt_composition?: string;
+          stock: number;
+          pharmacy_id?: string;
+        }>;
+      }>(`/pharmacies/${id}`);
     },
   },
 };

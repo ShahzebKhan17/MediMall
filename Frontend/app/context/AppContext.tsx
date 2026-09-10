@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo } from "react";
+import React, { createContext, useContext, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import { useCartStore, Medicine, CartItem } from "../../lib/store/useCartStore";
@@ -69,6 +69,13 @@ export interface UserProfile {
 }
 
 
+export interface SelectedPharmacy {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+}
+
 interface AppContextProps {
   user: UserProfile | null;
   role: "patient" | "pharmacy" | null;
@@ -78,6 +85,9 @@ interface AppContextProps {
   isHydrating: boolean;
   isConnected: boolean;
   serverError: string | null;
+  selectedPharmacy: SelectedPharmacy | null;
+  setSelectedPharmacy: (pharmacy: SelectedPharmacy | null) => void;
+  clearSelectedPharmacy: () => void;
   login: (email: string, role: "patient" | "pharmacy", password?: string) => Promise<void>;
   registerUser: (profile: Partial<UserProfile>, role: "patient" | "pharmacy", password?: string) => Promise<void>;
   resendVerificationEmail: (customEmail?: string) => Promise<void>;
@@ -86,7 +96,7 @@ interface AppContextProps {
   removeFromCart: (id: number) => void;
   updateCartQuantity: (id: number, quantity: number) => void;
   clearCart: () => void;
-  placeOrder: (paymentMethod: string, customAddress?: string, prescriptionName?: string, idempotencyKey?: string) => Promise<string>;
+  placeOrder: (paymentMethod: string, customAddress?: string, prescriptionName?: string, idempotencyKey?: string, pharmacyId?: string) => Promise<string>;
   updateOrderStatus: (orderId: string, status: Order["status"]) => Promise<void>;
   addPrescription: (name: string) => void;
   updateProfile: (profile: Partial<UserProfile>) => Promise<void>;
@@ -101,6 +111,34 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Zustand Cart Store
   const { cart, addToCart, removeFromCart, updateCartQuantity, clearCart } = useCartStore();
+
+  // Selected Pharmacy Store (for direct pharmacy orders)
+  const [selectedPharmacy, setSelectedPharmacyState] = useState<SelectedPharmacy | null>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("medimall_selected_pharmacy");
+        return stored ? JSON.parse(stored) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const setSelectedPharmacy = (pharm: SelectedPharmacy | null) => {
+    setSelectedPharmacyState(pharm);
+    if (typeof window !== "undefined") {
+      if (pharm) {
+        localStorage.setItem("medimall_selected_pharmacy", JSON.stringify(pharm));
+      } else {
+        localStorage.removeItem("medimall_selected_pharmacy");
+      }
+    }
+  };
+
+  const clearSelectedPharmacy = () => {
+    setSelectedPharmacy(null);
+  };
 
   // TanStack Queries
   const userQuery = useUserQuery();
@@ -260,17 +298,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     paymentMethod: string,
     customAddress?: string,
     prescriptionName?: string,
-    idempotencyKey?: string
+    idempotencyKey?: string,
+    pharmacyId?: string
   ): Promise<string> => {
     if (cart.length === 0 && !prescriptionName) {
       throw new Error("Cannot place an empty order.");
     }
+
+    const effectivePharmacyId = pharmacyId || selectedPharmacy?.id;
 
     const orderRes = await placeOrderMutation.mutateAsync({
       payment_method: paymentMethod,
       address: customAddress || user?.address || "",
       prescription_name: prescriptionName,
       idempotency_key: idempotencyKey,
+      pharmacy_id: effectivePharmacyId,
       items: cart.map((c) => ({ medicine_id: c.id, quantity: c.quantity })),
     });
 
@@ -279,6 +321,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     clearCart();
+    clearSelectedPharmacy();
     return orderRes.id;
   };
 
@@ -320,6 +363,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         isHydrating,
         isConnected,
         serverError,
+        selectedPharmacy,
+        setSelectedPharmacy,
+        clearSelectedPharmacy,
         login,
         registerUser,
         resendVerificationEmail,

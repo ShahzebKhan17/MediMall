@@ -99,7 +99,15 @@ class Order(Base):
 
     @property
     def pharmacy_name(self) -> str:
-        return self.pharmacy.name if self.pharmacy else "Care & Cure Pharmacy"
+        return self.pharmacy.name if self.pharmacy else ""
+
+    @property
+    def pharmacy_phone(self) -> str:
+        return self.pharmacy.phone if self.pharmacy and self.pharmacy.phone else ""
+
+    @property
+    def pharmacy_address(self) -> str:
+        return self.pharmacy.address if self.pharmacy and self.pharmacy.address else ""
 
 
 

@@ -100,7 +100,8 @@ def place_order(
         )
 
     # Idempotency Check: If key already processed for this user, return existing order directly
-    effective_idempotency_key = order_in.idempotency_key or idempotency_header
+    raw_header = idempotency_header if isinstance(idempotency_header, str) else None
+    effective_idempotency_key = order_in.idempotency_key or raw_header
     if effective_idempotency_key:
         existing_order = (
             db.query(Order)
@@ -156,15 +157,31 @@ def place_order(
     status_str = "Review" if has_rx else "Placed"
 
 
-    # Match nearest pharmacy
-    patient_lat = user.latitude if user.latitude is not None else 12.9716
-    patient_lng = user.longitude if user.longitude is not None else 77.5946
-    assigned_pharmacy = get_assigned_pharmacy(db, patient_lat, patient_lng)
+    # Match specific requested pharmacy or auto-assign nearest pharmacy
+    assigned_pharmacy = None
+    if order_in.pharmacy_id:
+        target_pharm = db.query(User).filter(
+            User.id == order_in.pharmacy_id,
+            User.role == "pharmacy",
+            User.is_email_verified == True
+        ).first()
+        if target_pharm and is_pharmacy_eligible_for_orders(target_pharm):
+            assigned_pharmacy = target_pharm
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The requested pharmacy is currently unavailable to accept orders. Please choose another pharmacy or allow auto-assignment.",
+            )
+
     if not assigned_pharmacy:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No registered pharmacy partners are currently available in your service area. Please register a pharmacy partner or try again shortly.",
-        )
+        patient_lat = user.latitude if user.latitude is not None else 12.9716
+        patient_lng = user.longitude if user.longitude is not None else 77.5946
+        assigned_pharmacy = get_assigned_pharmacy(db, patient_lat, patient_lng)
+        if not assigned_pharmacy:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No registered pharmacy partners are currently available in your service area. Please register a pharmacy partner or try again shortly.",
+            )
 
     # Create Order with Idempotency Key
     new_order = Order(

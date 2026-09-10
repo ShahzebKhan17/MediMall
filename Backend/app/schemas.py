@@ -191,6 +191,7 @@ class OrderCreate(BaseModel):
     address: Optional[str] = None
     prescription_name: Optional[str] = None
     idempotency_key: Optional[str] = None
+    pharmacy_id: Optional[str] = None
     items: List[OrderItemCreate]
 
 
@@ -200,7 +201,9 @@ class OrderResponse(BaseModel):
     pharmacy_id: Optional[str] = None
     patient_name: Optional[str] = "Customer"
     patient_phone: Optional[str] = None
-    pharmacy_name: Optional[str] = "Care & Cure Pharmacy"
+    pharmacy_name: Optional[str] = None
+    pharmacy_phone: Optional[str] = None
+    pharmacy_address: Optional[str] = None
     status: str
     total: int
     address: str
@@ -213,6 +216,28 @@ class OrderResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Pharmacy schemas
+class PharmacySummaryResponse(BaseModel):
+    id: str
+    name: str
+    email: str
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    medical_license: Optional[str] = None
+    distance_km: Optional[float] = None
+    medicines_count: int = 0
+    is_open: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class PharmacyDetailResponse(PharmacySummaryResponse):
+    medicines: List[MedicineResponse] = []
 
 
 
