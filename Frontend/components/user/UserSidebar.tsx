@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { Home, ShoppingBag, FileText, HeartPulse, CreditCard, HelpCircle, Settings, LogOut } from "lucide-react";
+import { Home, ShoppingBag, FileText, HeartPulse, CreditCard, HelpCircle, Settings, LogOut, Store } from "lucide-react";
 import { useAppContext } from "../../app/context/AppContext";
 
 interface UserSidebarProps {
@@ -11,6 +11,7 @@ interface UserSidebarProps {
 
 const navItems = [
   { icon: Home, label: "Overview", href: "/user/dashboard" },
+  { icon: Store, label: "Pharmacies", href: "/pharmacies" },
   { icon: ShoppingBag, label: "My orders", href: "/user/orders" },
   { icon: FileText, label: "Prescriptions", href: "/user/prescriptions" },
   { icon: HeartPulse, label: "Health profile", href: "/user/profile" },

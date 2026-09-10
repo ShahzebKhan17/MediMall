@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { AlertCircle, CheckCircle2, ClipboardList, Clock3, FileText, HeartPulse, MapPin, PackageCheck, Pill, Plus, RefreshCw, Search, ShoppingBag } from "lucide-react";
+import { AlertCircle, CheckCircle2, ClipboardList, Clock3, FileText, HeartPulse, MapPin, PackageCheck, Pill, Plus, RefreshCw, Search, ShoppingBag, Store } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 
 export default function UserDashboard() {
@@ -160,12 +160,19 @@ export default function UserDashboard() {
         </button>
       </div>
 
-      <div className="action-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+      <div className="action-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
         <button className="dash-action orange" onClick={() => location.href = "/medicines"}>
           <span><Search /></span>
           <div>
             <b>Search medicines</b>
             <small>Find what you already know</small>
+          </div>
+        </button>
+        <button className="dash-action green" onClick={() => location.href = "/pharmacies"}>
+          <span><Store /></span>
+          <div>
+            <b>Order by pharmacy</b>
+            <small>Choose your local chemist</small>
           </div>
         </button>
         <button className="dash-action purple" onClick={() => location.href = "/ai-doctor"}>
