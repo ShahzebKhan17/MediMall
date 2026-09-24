@@ -41,7 +41,12 @@ export default function Home() {
       {notice && <div className="toast"><Check size={16}/> {notice}</div>}
       <header className="nav shell">
         <a className="brand" href="#top" aria-label="MediMall home"><span className="brand-mark"><i>M</i><i>M</i></span>Medi<span>Mall</span></a>
-        <nav className={menu ? "open" : ""}><a href="/medicines">Medicines</a><a href="/pharmacies">Pharmacies</a><a href="/ai-doctor">AI Doctor</a><a href="#how">How it works</a></nav>
+        <nav className={menu ? "open" : ""}>
+          <a href="/medicines" onClick={() => setMenu(false)}>Medicines</a>
+          <a href="/pharmacies" onClick={() => setMenu(false)}>Pharmacies</a>
+          <a href="/ai-doctor" onClick={() => setMenu(false)}>AI Doctor</a>
+          <a href="#how" onClick={() => setMenu(false)}>How it works</a>
+        </nav>
         <div className="nav-actions">
           <button
             className="location"
@@ -71,7 +76,7 @@ export default function Home() {
             <a className="login" href="/login">Log in</a>
           )}
           <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle dark mode">{dark ? <Sun size={18}/> : <Moon size={18}/>}</button>
-          <button className="menu" onClick={() => setMenu(!menu)}>{menu ? <X/> : <Menu/>}</button>
+          <button className="menu" onClick={() => setMenu(!menu)} aria-label="Toggle navigation menu">{menu ? <X size={20}/> : <Menu size={20}/>}</button>
         </div>
       </header>
 

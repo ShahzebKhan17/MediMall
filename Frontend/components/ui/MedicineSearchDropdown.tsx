@@ -89,9 +89,9 @@ export function MedicineSearchDropdown({
   };
 
   return (
-    <div ref={containerRef} className={`medicine-search-wrapper ${className}`} style={{ position: "relative", width: "100%" }}>
-      <form onSubmit={handleSubmit} className="search-row" style={{ position: "relative", zIndex: 10 }}>
-        <Search size={20} className="search-icon" />
+    <div ref={containerRef} className={`medicine-search-wrapper ${className}`} style={{ position: "relative", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
+      <form onSubmit={handleSubmit} className="search-row" style={{ position: "relative", zIndex: 10, width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
+        <Search size={20} className="search-icon" style={{ flexShrink: 0 }} />
         <input
           ref={inputRef}
           type="text"
@@ -103,7 +103,7 @@ export function MedicineSearchDropdown({
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
           autoFocus={autoFocus}
-          style={{ width: "100%" }}
+          style={{ flex: 1, minWidth: 0, width: "100%" }}
         />
 
         {query && (
@@ -121,13 +121,14 @@ export function MedicineSearchDropdown({
               color: "#888",
               display: "flex",
               alignItems: "center",
+              flexShrink: 0,
             }}
           >
             <X size={16} />
           </button>
         )}
 
-        <button type="submit" style={{ whiteSpace: "nowrap" }}>
+        <button type="submit" style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
           Find medicine <ArrowRight size={16} />
         </button>
       </form>
