@@ -1,4 +1,4 @@
-const CACHE_NAME = 'medimall-v2';
+const CACHE_NAME = 'medimall-v3';
 const PRECACHE_ASSETS = [
   '/',
   '/icon.svg',

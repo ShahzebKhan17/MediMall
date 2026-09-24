@@ -31,7 +31,7 @@ export default function UserSidebar({ mobileOpen, onClose }: UserSidebarProps) {
     try {
       await logout();
     } finally {
-      router.push("/login");
+      window.location.replace("/login");
     }
   };
 

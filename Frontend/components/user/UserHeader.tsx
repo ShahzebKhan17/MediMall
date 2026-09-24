@@ -28,7 +28,7 @@ export default function UserHeader({ onMenuClick }: UserHeaderProps) {
     try {
       await logout();
     } finally {
-      router.push("/login");
+      window.location.replace("/login");
     }
   };
 

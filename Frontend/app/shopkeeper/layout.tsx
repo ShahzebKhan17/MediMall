@@ -165,14 +165,29 @@ export default function ShopkeeperLayout({ children }: { children: React.ReactNo
 
   useEffect(() => {
     if (!isHydrating) {
-      if (user && role !== "pharmacy") {
+      if (!user) {
+        router.replace("/login");
+      } else if (user && role !== "pharmacy") {
         router.replace("/user/dashboard");
       }
     }
   }, [user, role, isHydrating, router]);
 
-  // If logged in as patient, show blank or transition while redirecting
-  if (!isHydrating && user && role !== "pharmacy") {
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        const storedUser = typeof window !== "undefined" ? localStorage.getItem("medimall_user") : null;
+        if (!storedUser) {
+          window.location.replace("/login");
+        }
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
+  // If unauthenticated or not pharmacy, show nothing while redirecting
+  if (!isHydrating && (!user || role !== "pharmacy")) {
     return null;
   }
 

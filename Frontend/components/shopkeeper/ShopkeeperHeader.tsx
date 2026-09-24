@@ -42,7 +42,7 @@ export default function ShopkeeperHeader({ onMenuClick }: ShopkeeperHeaderProps)
     try {
       await logout();
     } finally {
-      router.push("/login");
+      window.location.replace("/login");
     }
   };
 

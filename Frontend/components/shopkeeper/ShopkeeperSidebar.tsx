@@ -24,7 +24,7 @@ export default function ShopkeeperSidebar({ mobileOpen, onClose }: ShopkeeperSid
     try {
       await logout();
     } finally {
-      router.push("/login");
+      window.location.replace("/login");
     }
   };
 

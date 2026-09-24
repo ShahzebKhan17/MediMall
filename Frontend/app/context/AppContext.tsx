@@ -288,10 +288,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       await logoutMutation.mutateAsync();
     } catch (e) {
       console.warn("Backend logout error:", e);
+    } finally {
+      queryClient.setQueryData(queryKeys.user, null);
+      queryClient.setQueryData(queryKeys.orders, []);
+      queryClient.setQueryData(queryKeys.prescriptions, []);
+      queryClient.removeQueries({ queryKey: queryKeys.user });
+      clearCart();
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("medimall_user");
+        localStorage.removeItem("medimall_role");
+      }
     }
-    clearCart();
-    localStorage.removeItem("medimall_user");
-    localStorage.removeItem("medimall_role");
   };
 
   const placeOrder = async (
