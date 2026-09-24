@@ -93,7 +93,7 @@ export default function Home() {
             </div>
             
             <MedicineSearchDropdown
-              placeholder="Search by medicine, brand name, or wrapper..."
+              placeholder="Search medicine, brand or wrapper..."
               onSearchSubmit={(q) => handleSearch(q)}
             />
 
