@@ -169,31 +169,16 @@ class UnifiedRAGOrchestrator:
             f"If emergency is true, issue urgent warnings and emphasize calling 108/112."
         )
 
-        payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [
-                        {"text": SYNTHESIS_SYSTEM_PROMPT},
-                        {"text": user_content}
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.2
-            }
-        }
-
         try:
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
-                method="POST"
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(
+                model_name=settings.rag_generation_model or "models/gemini-2.5-flash",
+                system_instruction=SYNTHESIS_SYSTEM_PROMPT
             )
-            with urllib.request.urlopen(req, timeout=10) as response:
-                result = json.loads(response.read().decode("utf-8"))
-                return result["candidates"][0]["content"]["parts"][0]["text"]
+            response = model.generate_content(user_content)
+            if response and response.text:
+                return response.text
         except Exception as e:
             logger.warning(f"Gemini synthesis call skipped/failed: {e}. Using deterministic clinical fallback.")
             return None

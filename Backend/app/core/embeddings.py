@@ -62,7 +62,8 @@ def get_embedding(text: str) -> List[float]:
             result = genai.embed_content(
                 model=settings.rag_embedding_model,
                 content=text.strip(),
-                task_type="retrieval_document"
+                task_type="retrieval_document",
+                output_dimensionality=DIMENSION
             )
             embedding = result.get("embedding", [])
             if embedding and len(embedding) == DIMENSION:
@@ -88,7 +89,8 @@ def get_query_embedding(query: str) -> List[float]:
             result = genai.embed_content(
                 model=settings.rag_embedding_model,
                 content=query.strip(),
-                task_type="retrieval_query"
+                task_type="retrieval_query",
+                output_dimensionality=DIMENSION
             )
             embedding = result.get("embedding", [])
             if embedding and len(embedding) == DIMENSION:
