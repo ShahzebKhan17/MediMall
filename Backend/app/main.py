@@ -148,5 +148,7 @@ def email_health_check():
 
 
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router, prefix="/api")
+
 
 

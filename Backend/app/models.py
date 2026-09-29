@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, DateTime, Float
+from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, DateTime, Float, Text
 from sqlalchemy.orm import relationship
+from pgvector.sqlalchemy import Vector
 
 from app.core.database import Base
 
@@ -59,6 +60,7 @@ class Medicine(Base):
     salt_composition = Column(String(255), nullable=True)
     stock = Column(Integer, default=100, nullable=False)
     expiry_date = Column(String(100), nullable=True)
+    manufacturing_date = Column(String(100), nullable=True)
     pharmacy_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
@@ -142,4 +144,21 @@ class PrescriptionRecord(Base):
     uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     user = relationship("User", back_populates="prescriptions")
+
+
+class ClinicalKnowledgeChunk(Base):
+    __tablename__ = "clinical_knowledge_chunks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    condition_name = Column(String(255), nullable=False, index=True)
+    category = Column(String(100), nullable=False, index=True)
+    symptoms_keywords = Column(Text, nullable=False)
+    is_emergency = Column(Boolean, default=False, nullable=False)
+    red_flags = Column(Text, nullable=True)
+    contraindications = Column(Text, nullable=True)
+    target_salts = Column(Text, nullable=False)  # JSON-encoded array of active salts
+    content_chunk = Column(Text, nullable=False)
+    lifestyle_advice = Column(Text, nullable=True)  # JSON-encoded array of guidance strings
+    embedding = Column(Vector(768), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 

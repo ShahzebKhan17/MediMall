@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
     gemini_api_key: str = ""
     openai_api_key: str = ""
+    rag_embedding_model: str = "models/text-embedding-004"
+    rag_embedding_dim: int = 768
 
 
     model_config = SettingsConfigDict(env_file=_ENV_FILE_CANDIDATES, extra="ignore")

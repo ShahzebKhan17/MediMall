@@ -41,3 +41,6 @@ Backend/app/uploads/
 # TypeScript build info
 *.tsbuildinfo
 
+# IDE settings
+.vscode/
+

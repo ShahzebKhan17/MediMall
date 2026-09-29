@@ -1,6 +1,5 @@
 from fastapi import APIRouter
-
-from app.api.endpoints import auth, medicines, orders, prescriptions, ai_doctor, pharmacies
+from app.api.endpoints import auth, medicines, orders, prescriptions, ai_doctor, pharmacies, rag
 
 api_router = APIRouter()
 
@@ -16,5 +15,6 @@ api_router.include_router(pharmacies.router, prefix="/pharmacies", tags=["pharma
 api_router.include_router(orders.router, prefix="/orders", tags=["orders"])
 api_router.include_router(prescriptions.router, prefix="/prescriptions", tags=["prescriptions"])
 api_router.include_router(ai_doctor.router, prefix="/ai-doctor", tags=["ai-doctor"])
+api_router.include_router(rag.router, prefix="/consult", tags=["clinical-consultation"])
 
 
